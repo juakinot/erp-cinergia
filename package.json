@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx prisma/seed.ts",
-    "db:verify": "node scripts/verify-setup.mjs"
+    "db:verify": "node scripts/verify-setup.mjs",
+    "seed:test-users": "tsx prisma/seed-test-users.ts",
+    "verify:isolation": "tsx scripts/verify-isolation.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
