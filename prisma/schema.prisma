@@ -218,13 +218,17 @@ enum AttachmentStatus {
 // ═══════════════════════════════════════════════════════════
 
 model Area {
-  id                 String         @id @default(uuid()) @db.Uuid
-  slug               AreaSlug       @unique
-  name               String // "Eventos", "Marketing", "Proyectos e Investigaciones"
+  id   String   @id @default(uuid()) @db.Uuid
+  slug AreaSlug @unique
+  /// Nombre corto, para navegación y uso diario: "Eventos", "Marketing", "Proyectos".
+  name String
+  /// Nombre formal, para encabezados de acta y PDF generados:
+  /// "Dirección de Comunidad y Eventos", "Área de Proyectos e Investigación".
+  formalName            String         @map("formal_name")
   defaultInitiativeType InitiativeType @map("default_initiative_type")
-  codePrefix         String         @map("code_prefix") // "EV" | "CM" | "PY"
-  description        String?
-  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  codePrefix            String         @map("code_prefix") // "EV" | "CM" | "PY"
+  description           String?
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
 
   users       User[]
   initiatives Initiative[]
@@ -263,8 +267,10 @@ model User {
   inputTransitions       InitiativeInputTransition[]
   ownedRisks             InitiativeRisk[]
   observations           Observation[]
-  approvedActas          Acta[]                   @relation("ActaApprover")
   createdActas           Acta[]                   @relation("ActaCreator")
+  reviewedActas          Acta[]                   @relation("ActaReviewer")
+  approvedActas          Acta[]                   @relation("ActaApprover")
+  presidencySignedActas  Acta[]                   @relation("ActaPresidencyApprover")
   logisticsDone          LogisticsItem[]
   ideas                  Idea[]
   ideaVotes              IdeaVote[]
@@ -567,19 +573,31 @@ model Acta {
   /// el flujo interno de aprobación del Director de Área.
   externalApprovalStatus ExternalApprovalStatus @default(NOT_APPLICABLE) @map("external_approval_status")
 
+  /// Sección "Validación y Cierre" de la plantilla: Elaborado / Revisado / Aprobado.
   createdByUserId  String    @map("created_by_user_id") @db.Uuid
+  reviewedByUserId String?   @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt       DateTime? @map("reviewed_at") @db.Timestamptz(6)
   approvedByUserId String?   @map("approved_by_user_id") @db.Uuid
   approvedAt       DateTime? @map("approved_at") @db.Timestamptz(6)
-  publishedAt      DateTime? @map("published_at") @db.Timestamptz(6)
-  pdfUrl           String?   @map("pdf_url")
+
+  /// Segunda firma obligatoria SOLO para initiative.type = PROJECT: el acta de
+  /// constitución lleva firma de Presidencia impresa en el formato oficial,
+  /// sin importar el monto. Es una excepción explícita a la regla de escalación.
+  presidencyApprovedByUserId String?   @map("presidency_approved_by_user_id") @db.Uuid
+  presidencyApprovedAt       DateTime? @map("presidency_approved_at") @db.Timestamptz(6)
+
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(6)
+  pdfUrl      String?   @map("pdf_url")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  initiative Initiative   @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
-  template   ActaTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
-  createdBy  User         @relation("ActaCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  approvedBy User?        @relation("ActaApprover", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  initiative         Initiative   @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  template           ActaTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  createdBy          User         @relation("ActaCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  reviewedBy         User?        @relation("ActaReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  approvedBy         User?        @relation("ActaApprover", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  presidencyApprover User?        @relation("ActaPresidencyApprover", fields: [presidencyApprovedByUserId], references: [id], onDelete: SetNull)
 
   attachments Attachment[]
 

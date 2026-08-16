@@ -16,7 +16,9 @@
       "Bash(npx --yes create-next-app@latest erp-cinergia --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --skip-install --yes)",
       "Bash(npx prisma *)",
       "Bash(npm install *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "Bash(node -e ' *)"
     ]
   }
 }
