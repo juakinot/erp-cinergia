@@ -3,6 +3,7 @@ node_modules/
 out/
 build/
 dist/
+*.tsbuildinfo
 
 # Secretos — nunca al repositorio
 .env
