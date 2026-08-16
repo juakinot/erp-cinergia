@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { logout } from './actions';
 
@@ -59,6 +60,12 @@ export default async function Home() {
             Sesión verificada de extremo a extremo: Supabase Auth → RLS → perfil de{' '}
             <code className="rounded bg-[#E8EEF5] px-1 py-0.5">public.users</code>.
           </p>
+          <Link
+            href="/iniciativas"
+            className="mt-6 block rounded-md bg-[#0066CC] px-4 py-2 text-center text-sm font-semibold text-white hover:bg-[#0059B3]"
+          >
+            Ver iniciativas →
+          </Link>
         </div>
       </div>
     </main>

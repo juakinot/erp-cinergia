@@ -1,3 +1,9 @@
+-- CreateExtension
+-- Necesaria para el tipo CITEXT usado en users.email. Se declara aquí (no
+-- solo en el dashboard de Supabase) para que la base de datos "shadow" que
+-- Prisma crea al validar migraciones también la tenga disponible.
+CREATE EXTENSION IF NOT EXISTS "citext";
+
 -- CreateEnum
 CREATE TYPE "Role" AS ENUM ('PRESIDENT', 'AREA_DIRECTOR', 'REPORTS_DIRECTOR', 'COORDINATOR', 'MEMBER');
 

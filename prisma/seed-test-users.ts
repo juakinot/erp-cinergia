@@ -14,6 +14,8 @@
  */
 import 'dotenv/config';
 import crypto from 'node:crypto';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { createAdminClient } from '../src/lib/supabase/admin';
@@ -180,8 +182,12 @@ async function standaloneMain() {
   await db.$disconnect();
 }
 
-// Detecta si este archivo se ejecutó directamente (no importado desde otro script).
-const isDirectRun = import.meta.url === `file://${process.argv[1]}`;
+// Detecta si este archivo se ejecutó directamente (no importado desde otro
+// script). La comparación de strings ingenua (`import.meta.url ===
+// file://${argv[1]}`) falla en esta carpeta porque el path tiene espacios
+// ("ERP PLAN ARQUI") — import.meta.url los codifica como %20 y argv[1] no.
+const isDirectRun =
+  process.argv[1] !== undefined && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 if (isDirectRun) {
   standaloneMain().catch((e) => {
     console.error('✗ Error:', e);

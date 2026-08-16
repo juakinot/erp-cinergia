@@ -257,6 +257,7 @@ model User {
   coordinatedInitiatives Initiative[]             @relation("InitiativeCoordinator")
   approvedInitiatives    Initiative[]             @relation("InitiativeApprover")
   createdInitiatives     Initiative[]             @relation("InitiativeCreator")
+  escalationRequests     Initiative[]             @relation("InitiativeEscalationRequester")
   initiativeTransitions  InitiativeTransition[]
   assignedTasks          Task[]                   @relation("TaskAssignee")
   createdTasks           Task[]                   @relation("TaskCreator")
@@ -329,6 +330,13 @@ model Initiative {
   /// null = el Director de Área aprobó dentro de su autoridad.
   escalationReason EscalationReason? @map("escalation_reason")
 
+  /// El propio Director de Área puede pedir explícitamente que Presidencia
+  /// decida, sin que el monto lo obligue (EscalationReason.DIRECTOR_REQUEST).
+  /// No cambia el estado por sí solo — solo habilita a PRESIDENT a aprobar
+  /// y bloquea la aprobación directa del DA mientras esté marcado.
+  escalationRequestedAt         DateTime? @map("escalation_requested_at") @db.Timestamptz(6)
+  escalationRequestedByUserId   String?   @map("escalation_requested_by_user_id") @db.Uuid
+
   riskLevel          RiskLevel @default(GREEN) @map("risk_level")
   riskLastComputedAt DateTime? @map("risk_last_computed_at") @db.Timestamptz(6)
 
@@ -340,11 +348,12 @@ model Initiative {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  area        Area  @relation(fields: [areaId], references: [id], onDelete: Restrict)
-  coordinator User  @relation("InitiativeCoordinator", fields: [coordinatorUserId], references: [id], onDelete: Restrict)
-  createdBy   User  @relation("InitiativeCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  approvedBy  User? @relation("InitiativeApprover", fields: [approvedByUserId], references: [id], onDelete: SetNull)
-  sourceIdea  Idea? @relation(fields: [sourceIdeaId], references: [id], onDelete: SetNull)
+  area                  Area  @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  coordinator           User  @relation("InitiativeCoordinator", fields: [coordinatorUserId], references: [id], onDelete: Restrict)
+  createdBy             User  @relation("InitiativeCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  approvedBy            User? @relation("InitiativeApprover", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  escalationRequestedBy User? @relation("InitiativeEscalationRequester", fields: [escalationRequestedByUserId], references: [id], onDelete: SetNull)
+  sourceIdea            Idea? @relation(fields: [sourceIdeaId], references: [id], onDelete: SetNull)
 
   transitions   InitiativeTransition[]
   tasks         Task[]

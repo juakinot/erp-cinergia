@@ -135,6 +135,69 @@ que quien lo lea no asuma que todo el sistema es RLS-only.
 
 ---
 
+## D9 · `prisma migrate dev` no funciona contra el pooler de Supabase — flujo manual de migraciones
+
+**Decisión.** Los cambios de esquema posteriores al `init` se escriben a mano
+como SQL, se aplican con `scripts/run-sql.mjs` (conexión directa, puerto 5432)
+y se registran con `prisma migrate resolve --applied <nombre>`. No se vuelve
+a invocar `prisma migrate dev` ni `--create-only` en este proyecto.
+
+**Por qué.** `migrate dev` necesita crear una base de datos "shadow" efímera
+para probar que las migraciones aplican limpio en secuencia. Contra el pooler
+de Supabase, esa creación se queda colgada indefinidamente — probablemente el
+rol de conexión no tiene privilegio `CREATEDB` en el servidor administrado.
+Pasó dos veces en esta sesión, ambas hubo que matar el proceso a mano.
+
+**Cómo agregar un cambio de esquema de aquí en adelante:**
+1. Editar `prisma/schema.prisma`.
+2. `npx prisma validate` — valida sintaxis sin tocar la base de datos.
+3. Escribir a mano `prisma/migrations/<timestamp>_<nombre>/migration.sql`
+   (mirar una migración anterior para el estilo de `ALTER TABLE`/`ADD
+   CONSTRAINT` — Prisma es consistente, es mecánico de replicar).
+4. `node scripts/run-sql.mjs prisma/migrations/<carpeta>/migration.sql`
+5. `npx prisma migrate resolve --applied <timestamp>_<nombre>`
+6. `npx prisma generate`
+
+**Consecuencia.** La migración `init` incluye ahora `CREATE EXTENSION IF NOT
+EXISTS "citext"` al principio (antes solo estaba activada manualmente desde
+el dashboard de Supabase) — si algún día se logra levantar un shadow db que
+sí funcione, esa migración ya es autocontenida y no fallará por falta de la
+extensión.
+
+---
+
+## D10 · `id` necesita `DEFAULT gen_random_uuid()` real en la base de datos
+
+**Decisión.** Todas las tablas con `id String @id @default(uuid())` (29 de
+30 modelos — `users` es la excepción, su id viene de Supabase Auth) reciben
+`ALTER COLUMN "id" SET DEFAULT gen_random_uuid()` a nivel de Postgres.
+
+**Por qué.** `@default(uuid())` de Prisma genera el UUID **en el cliente de
+Prisma**, antes de armar el INSERT — no crea un `DEFAULT` real en la columna.
+Eso es invisible mientras todo pasa por Prisma Client, pero esta app escribe
+datos operativos vía `supabase-js` con la sesión del usuario (para que RLS
+decida, no `service_role` — ver D7), y ese camino no tiene forma de generar
+el UUID del lado del cliente. Sin este `DEFAULT`, cualquier `insert()` vía
+supabase-js fallaba con `null value in column "id"` — se detectó al probar
+crear una iniciativa real desde el formulario, no en una revisión de código.
+
+**El mismo problema apareció de nuevo con `updated_at`.** `@updatedAt` de
+Prisma también se calcula en el cliente, en cada `UPDATE` que pasa por
+Prisma Client — un `update()` vía supabase-js no lo toca. Se resolvió con
+`DEFAULT now()` (valor inicial) más un trigger `BEFORE UPDATE` compartido
+(`public.set_updated_at()`) en las 13 tablas que tienen esa columna — un
+`DEFAULT` solo no basta porque no se re-ejecuta en cada `UPDATE`, y ese es
+justamente el comportamiento que se necesita.
+
+**Consecuencia práctica.** Cualquier tabla nueva que se agregue más adelante
+necesita el mismo tratamiento — `DEFAULT gen_random_uuid()` en `id`, y si
+tiene `updated_at`, sumarla al `DO $$ ... FOR t IN ...` del trigger — si
+sus filas se van a crear o editar alguna vez vía supabase-js (que es casi
+siempre, dado D7). Fácil de olvidar; vale la pena revisarlo en cada
+migración nueva que agregue una tabla.
+
+---
+
 ## Pendiente de definir
 
 - **Estructura de `acta_templates.structure_schema`** para `EVENT` y `PROJECT`.
