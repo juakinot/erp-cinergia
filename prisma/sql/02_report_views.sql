@@ -155,6 +155,30 @@ join public.initiatives i on i.id = rs.initiative_id
 join public.areas a on a.id = i.area_id;
 
 -- ═══════════════════════════════════════════════════════════
+-- CIERRE DE ACCESO POR DEFECTO — corrección de seguridad
+-- ═══════════════════════════════════════════════════════════
+--
+-- Una vista corre con los permisos de quien la creó (esta migración usa
+-- una conexión con privilegios), no con los del usuario que la consulta.
+-- Eso significa que RLS de `initiatives`, `tasks`, etc. NO protege estas
+-- vistas: por defecto, Supabase otorga SELECT sobre todo lo nuevo en
+-- `public` a los roles `anon` y `authenticated`. Sin este bloque, cualquier
+-- Miembro autenticado podría leer datos agregados de las 3 áreas.
+--
+-- Se cierra el acceso por completo. Quedan solo dos caminos: el rol
+-- dedicado de Cinergia Core (documentado abajo) y el backend de nuestra
+-- propia app, que usa el service role — el cual ya bypassa RLS por
+-- diseño de Supabase — y decide en código si el usuario en sesión es
+-- PRESIDENT o REPORTS_DIRECTOR antes de devolver cualquier dato.
+
+revoke all on
+  public.v_report_initiatives,
+  public.v_report_actas,
+  public.v_report_progress,
+  public.v_report_risk_history
+from public, anon, authenticated;
+
+-- ═══════════════════════════════════════════════════════════
 -- ROL DE LECTURA PARA CINERGIA CORE
 -- ═══════════════════════════════════════════════════════════
 --

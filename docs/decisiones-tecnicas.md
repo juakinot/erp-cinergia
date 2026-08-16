@@ -113,6 +113,28 @@ y con el registro en `initiative_input_transitions`.
 
 ---
 
+## D8 · Las vistas de reporte no son accesibles desde el navegador
+
+**Decisión.** `revoke all ... from public, anon, authenticated` sobre las 4
+vistas `v_report_*`. Solo `service_role` (y, cuando exista, el rol dedicado de
+Cinergia Core) puede leerlas.
+
+**Por qué.** Una vista se ejecuta con los permisos de quien la creó, no de
+quien la consulta — por eso RLS de `initiatives`, `tasks`, etc. no la protege.
+Supabase otorga `SELECT` sobre todo objeto nuevo de `public` a `anon` y
+`authenticated` por defecto. Sin este bloqueo, cualquier Miembro autenticado
+podría leer el agregado de las 3 áreas vía la API REST, sin pasar por RLS.
+
+**Consecuencia.** El dashboard de Director de Reportes no puede consultar
+estas vistas directamente desde el cliente (Supabase JS en el navegador). Se
+consultan desde un Server Component o Route Handler usando el `service_role`,
+y el código del servidor verifica que la sesión sea `PRESIDENT` o
+`REPORTS_DIRECTOR` antes de devolver cualquier dato. El control de acceso de
+este caso específico vive en la aplicación, no en RLS — documentado aquí para
+que quien lo lea no asuma que todo el sistema es RLS-only.
+
+---
+
 ## Pendiente de definir
 
 - **Estructura de `acta_templates.structure_schema`** para `EVENT` y `PROJECT`.
