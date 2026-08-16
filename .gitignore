@@ -1,0 +1,19 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Secretos — nunca al repositorio
+.env
+.env.local
+.env*.local
+*.pem
+
+# Sistema
+.DS_Store
+*.log
+npm-debug.log*
+.vercel
+.turbo
+coverage/

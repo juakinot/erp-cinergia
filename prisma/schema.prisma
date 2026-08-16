@@ -1,0 +1,1090 @@
+// ERP CINERGIA — Esquema de datos
+// Basado en Arquitectura v2.1 y Especificación funcional v1.3
+//
+// Convención: modelos en inglés (PascalCase), tablas en snake_case vía @@map.
+// La interfaz de usuario es 100% en español; ningún nombre de aquí se muestra al usuario.
+//
+// Fase 1 (MVP) usa solo type = EVENT. Los modelos de Marketing/Proyectos, Ideación,
+// Encuestas, Dashboards y Propuestas de mejora se declaran desde ahora para evitar
+// migraciones destructivas más adelante, aunque su UI llegue en fases posteriores.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ═══════════════════════════════════════════════════════════
+// ENUMS
+// ═══════════════════════════════════════════════════════════
+
+/// Jerarquía de 5 niveles. PRESIDENT cubre Presidente y Vicepresidente
+/// (permisos idénticos). AREA_DIRECTOR cubre Director y Subdirector.
+enum Role {
+  PRESIDENT
+  AREA_DIRECTOR
+  REPORTS_DIRECTOR
+  COORDINATOR
+  MEMBER
+}
+
+enum AreaSlug {
+  EVENTS
+  MARKETING
+  PROJECTS
+}
+
+enum InitiativeType {
+  EVENT // Área Eventos      → código EV-YYYY-NNN
+  CAMPAIGN // Área Marketing     → código CM-YYYY-NNN
+  PROJECT // Área Proyectos     → código PY-YYYY-NNN
+}
+
+enum InitiativeStatus {
+  IDEA
+  PROPOSAL
+  APPROVED
+  PLANNING
+  READY // listo_ejecucion
+  EXECUTION
+  POST_EVENT
+  CLOSED
+  CANCELLED
+}
+
+/// Motivo por el que una decisión sube de Director de Área a Presidencia.
+/// Si es null, el Director de Área aprobó dentro de su propia autoridad.
+enum EscalationReason {
+  BUDGET_THRESHOLD // presupuesto proyectado > umbral configurado
+  CROSS_AREA // involucra más de un área
+  DIRECTOR_REQUEST // el Director de Área pidió escalar explícitamente
+}
+
+enum RiskLevel {
+  GREEN
+  AMBER // naranja en la UI
+  RED
+}
+
+enum Modality {
+  IN_PERSON
+  VIRTUAL
+  HYBRID
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  IN_REVIEW
+  BLOCKED
+  COMPLETED
+  OVERDUE
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ActaStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  PUBLISHED
+}
+
+/// Aprobación de decanato. Los decanos no acceden al ERP: la evidencia se
+/// adjunta manualmente una vez recibida por canales externos.
+enum ExternalApprovalStatus {
+  NOT_APPLICABLE
+  PENDING
+  APPROVED
+}
+
+enum LogisticsItemStatus {
+  PENDING
+  DONE
+  NOT_APPLICABLE
+}
+
+enum SurveyStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum ObservationVisibility {
+  INTERNAL // todo el equipo de la iniciativa
+  DIRECTION // solo Director de Área y Presidencia
+}
+
+/// Radar operativo: catálogo de tipos de aporte.
+enum InputKind {
+  TASK_SUGGESTION
+  RISK_ALERT
+  LOGISTICS_NEED
+  OPERATIONAL_NOTE
+  DATE_ADJUSTMENT
+  OWNER_CHANGE
+  FINDING
+  IMPROVEMENT
+  SUPPORT_REQUEST
+  QUICK_IDEA
+}
+
+enum InputStatus {
+  PROPOSED
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  CONVERTED
+  CLOSED
+}
+
+/// Entidad en la que se materializó un input aprobado del Radar.
+enum ConvertedToType {
+  TASK
+  RISK
+  LOGISTICS_ITEM
+  OBSERVATION
+}
+
+enum RiskStatus {
+  ACTIVE
+  MITIGATED
+  CLOSED
+}
+
+enum LikelihoodImpact {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum IdeaStatus {
+  DRAFT
+  ACTIVE
+  PROMOTED
+  DISCARDED
+}
+
+enum CampaignStatus {
+  SCHEDULED
+  ACTIVE
+  CLOSED
+}
+
+enum ProposalStatus {
+  PROPOSED
+  APPROVED
+  REJECTED
+  CONVERTED
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  WHATSAPP
+}
+
+enum NotificationCategory {
+  DUE_DATES
+  APPROVALS
+  RADAR
+  INITIATIVES
+  SYSTEM
+}
+
+enum AttachmentStatus {
+  ACTIVE
+  DELETED
+  PURGED
+}
+
+// ═══════════════════════════════════════════════════════════
+// ORGANIZACIÓN Y PERSONAS
+// ═══════════════════════════════════════════════════════════
+
+model Area {
+  id                 String         @id @default(uuid()) @db.Uuid
+  slug               AreaSlug       @unique
+  name               String // "Eventos", "Marketing", "Proyectos e Investigaciones"
+  defaultInitiativeType InitiativeType @map("default_initiative_type")
+  codePrefix         String         @map("code_prefix") // "EV" | "CM" | "PY"
+  description        String?
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  users       User[]
+  initiatives Initiative[]
+  ideas       Idea[]
+
+  @@map("areas")
+}
+
+/// Perfil de aplicación. `id` es el mismo UUID que `auth.users.id` de Supabase Auth:
+/// las contraseñas, MFA y sesiones las gestiona Supabase, nunca esta tabla.
+model User {
+  id        String     @id @db.Uuid
+  email     String     @unique @db.Citext
+  fullName  String     @map("full_name")
+  phone     String? // requerido solo si activa el canal WhatsApp
+  role      Role
+  /// null solo para PRESIDENT y REPORTS_DIRECTOR (alcance cross-área).
+  areaId    String?    @map("area_id") @db.Uuid
+  status    UserStatus @default(ACTIVE)
+  lastLoginAt DateTime? @map("last_login_at") @db.Timestamptz(6)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  area Area? @relation(fields: [areaId], references: [id], onDelete: Restrict)
+
+  coordinatedInitiatives Initiative[]             @relation("InitiativeCoordinator")
+  approvedInitiatives    Initiative[]             @relation("InitiativeApprover")
+  createdInitiatives     Initiative[]             @relation("InitiativeCreator")
+  initiativeTransitions  InitiativeTransition[]
+  assignedTasks          Task[]                   @relation("TaskAssignee")
+  createdTasks           Task[]                   @relation("TaskCreator")
+  taskTransitions        TaskTransition[]
+  authoredInputs         InitiativeInput[]        @relation("InputAuthor")
+  reviewedInputs         InitiativeInput[]        @relation("InputReviewer")
+  convertedInputs        InitiativeInput[]        @relation("InputConverter")
+  inputTransitions       InitiativeInputTransition[]
+  ownedRisks             InitiativeRisk[]
+  observations           Observation[]
+  approvedActas          Acta[]                   @relation("ActaApprover")
+  createdActas           Acta[]                   @relation("ActaCreator")
+  logisticsDone          LogisticsItem[]
+  ideas                  Idea[]
+  ideaVotes              IdeaVote[]
+  campaigns              IdeaCampaign[]
+  proposals              ImprovementProposal[]    @relation("ProposalAuthor")
+  decidedProposals       ImprovementProposal[]    @relation("ProposalDecider")
+  notifications          Notification[]
+  notificationPrefs      NotificationPreference[]
+  auditEntries           AuditLog[]
+  uploads                Attachment[]
+  calendarItems          CalendarItem[]
+  surveyResponses        SurveyResponse[]
+
+  @@index([role, areaId])
+  @@index([areaId, status])
+  @@map("users")
+}
+
+// ═══════════════════════════════════════════════════════════
+// INICIATIVA — entidad central
+// ═══════════════════════════════════════════════════════════
+
+model Initiative {
+  id   String @id @default(uuid()) @db.Uuid
+  /// Llave de negocio pública: "EV-2026-015". Denormalizada desde
+  /// (type, year, sequence) para búsqueda y URLs.
+  code String @unique
+
+  /// year + sequence generan el código de forma segura ante concurrencia.
+  year     Int
+  sequence Int
+
+  type   InitiativeType
+  areaId String         @map("area_id") @db.Uuid
+
+  title       String
+  description String
+  objective   String
+  modality    Modality
+  status      InitiativeStatus @default(PROPOSAL)
+
+  plannedDate    DateTime? @map("planned_date") @db.Timestamptz(6)
+  plannedEndDate DateTime? @map("planned_end_date") @db.Timestamptz(6)
+
+  /// Campos de cierre. Obligatorios varían por `type` — ver validaciones de
+  /// aplicación, no se fuerzan a nivel de esquema porque dependen del tipo.
+  projectedBudget Decimal? @map("projected_budget") @db.Decimal(10, 2)
+  venue           String?
+  sctrStatus      String?  @map("sctr_status")
+
+  coordinatorUserId String  @map("coordinator_user_id") @db.Uuid
+  createdByUserId   String  @map("created_by_user_id") @db.Uuid
+
+  approvedByUserId String?           @map("approved_by_user_id") @db.Uuid
+  approvedAt       DateTime?         @map("approved_at") @db.Timestamptz(6)
+  /// null = el Director de Área aprobó dentro de su autoridad.
+  escalationReason EscalationReason? @map("escalation_reason")
+
+  riskLevel          RiskLevel @default(GREEN) @map("risk_level")
+  riskLastComputedAt DateTime? @map("risk_last_computed_at") @db.Timestamptz(6)
+
+  cancelledReason String?   @map("cancelled_reason")
+  closedAt        DateTime? @map("closed_at") @db.Timestamptz(6)
+
+  sourceIdeaId String? @unique @map("source_idea_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  area        Area  @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  coordinator User  @relation("InitiativeCoordinator", fields: [coordinatorUserId], references: [id], onDelete: Restrict)
+  createdBy   User  @relation("InitiativeCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  approvedBy  User? @relation("InitiativeApprover", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  sourceIdea  Idea? @relation(fields: [sourceIdeaId], references: [id], onDelete: SetNull)
+
+  transitions   InitiativeTransition[]
+  tasks         Task[]
+  kanbanBoard   KanbanBoard?
+  calendarItems CalendarItem[]
+  actas         Acta[]
+  checklist     LogisticsChecklist?
+  surveys       Survey[]
+  observations  Observation[]
+  inputs        InitiativeInput[]
+  risks         InitiativeRisk[]
+  riskSnapshots RiskSnapshot[]
+  attachments   Attachment[]
+
+  @@unique([type, year, sequence])
+  @@index([areaId, status])
+  @@index([status, plannedDate])
+  @@index([riskLevel, status])
+  @@map("initiatives")
+}
+
+/// Historial inmutable de cambios de estado. Guarda el snapshot de validaciones
+/// para poder auditar por qué una transición se permitió o se rechazó.
+model InitiativeTransition {
+  id                 String            @id @default(uuid()) @db.Uuid
+  initiativeId       String            @map("initiative_id") @db.Uuid
+  fromStatus         InitiativeStatus? @map("from_status")
+  toStatus           InitiativeStatus  @map("to_status")
+  actorUserId        String            @map("actor_user_id") @db.Uuid
+  validationSnapshot Json?             @map("validation_snapshot")
+  reason             String?
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  actor      User       @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([initiativeId, createdAt])
+  @@map("initiative_transitions")
+}
+
+// ═══════════════════════════════════════════════════════════
+// TAREAS Y KANBAN
+// ═══════════════════════════════════════════════════════════
+
+model Task {
+  id           String @id @default(uuid()) @db.Uuid
+  initiativeId String @map("initiative_id") @db.Uuid
+
+  title       String
+  description String?
+  status      TaskStatus @default(PENDING)
+  priority    Priority   @default(MEDIUM)
+
+  assigneeUserId  String?   @map("assignee_user_id") @db.Uuid
+  createdByUserId String    @map("created_by_user_id") @db.Uuid
+  dueDate         DateTime? @map("due_date") @db.Timestamptz(6)
+
+  /// true obligatorio si priority es HIGH o CRITICAL.
+  requiresApproval Boolean @default(false) @map("requires_approval")
+
+  blockedReason String?   @map("blocked_reason")
+  blockedAt     DateTime? @map("blocked_at") @db.Timestamptz(6)
+  completedAt   DateTime? @map("completed_at") @db.Timestamptz(6)
+
+  /// Si nació de un input del Radar, queda enlazado bidireccionalmente.
+  sourceInputId String? @unique @map("source_input_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  initiative  Initiative       @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  assignee    User?            @relation("TaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  createdBy   User             @relation("TaskCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  sourceInput InitiativeInput? @relation(fields: [sourceInputId], references: [id], onDelete: SetNull)
+
+  transitions InitiativeTaskTransitionAlias[]
+  kanbanCard  KanbanCard?
+  attachments Attachment[]
+
+  @@index([initiativeId, status])
+  @@index([assigneeUserId, status, dueDate])
+  @@index([status, dueDate])
+  @@map("tasks")
+}
+
+/// Nombre de relación desambiguado; la tabla real es `task_transitions`.
+model InitiativeTaskTransitionAlias {
+  id          String      @id @default(uuid()) @db.Uuid
+  taskId      String      @map("task_id") @db.Uuid
+  fromStatus  TaskStatus? @map("from_status")
+  toStatus    TaskStatus  @map("to_status")
+  actorUserId String      @map("actor_user_id") @db.Uuid
+  reason      String?
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  task  Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actor User @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([taskId, createdAt])
+  @@map("task_transitions")
+}
+
+model KanbanBoard {
+  id           String   @id @default(uuid()) @db.Uuid
+  initiativeId String   @unique @map("initiative_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  initiative Initiative     @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  columns    KanbanColumn[]
+
+  @@map("kanban_boards")
+}
+
+model KanbanColumn {
+  id       String     @id @default(uuid()) @db.Uuid
+  boardId  String     @map("board_id") @db.Uuid
+  name     String
+  /// Estado de tarea que representa esta columna.
+  status   TaskStatus
+  position Int
+  wipLimit Int?       @map("wip_limit")
+
+  board KanbanBoard  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards KanbanCard[]
+
+  @@unique([boardId, position])
+  @@map("kanban_columns")
+}
+
+model KanbanCard {
+  id       String @id @default(uuid()) @db.Uuid
+  columnId String @map("column_id") @db.Uuid
+  taskId   String @unique @map("task_id") @db.Uuid
+  position Int
+
+  column KanbanColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  task   Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([columnId, position])
+  @@map("kanban_cards")
+}
+
+// ═══════════════════════════════════════════════════════════
+// CALENDARIO
+// ═══════════════════════════════════════════════════════════
+
+enum CalendarItemKind {
+  MILESTONE
+  MEETING
+  DELIVERY
+  EXECUTION
+}
+
+enum CalendarVisibility {
+  PRIVATE
+  TEAM
+  PUBLIC
+}
+
+model CalendarItem {
+  id           String  @id @default(uuid()) @db.Uuid
+  initiativeId String? @map("initiative_id") @db.Uuid
+
+  title       String
+  description String?
+  startsAt    DateTime           @map("starts_at") @db.Timestamptz(6)
+  endsAt      DateTime           @map("ends_at") @db.Timestamptz(6)
+  allDay      Boolean            @default(false) @map("all_day")
+  location    String?
+  kind        CalendarItemKind
+  visibility  CalendarVisibility @default(TEAM)
+
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  initiative Initiative? @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  createdBy  User        @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([initiativeId, startsAt])
+  @@index([startsAt, kind])
+  @@map("calendar_items")
+}
+
+// ═══════════════════════════════════════════════════════════
+// ACTAS
+// ═══════════════════════════════════════════════════════════
+
+/// Plantilla por tipo de iniciativa. EVENT y PROJECT tienen estructuras
+/// completas y distintas (ambas pueden ir a decanato); CAMPAIGN es ligera.
+model ActaTemplate {
+  id             String         @id @default(uuid()) @db.Uuid
+  initiativeType InitiativeType @map("initiative_type")
+  name           String
+  version        Int            @default(1)
+  /// Definición de secciones y campos del formulario (JSON Schema).
+  structureSchema Json          @map("structure_schema")
+  /// Plantilla de prompt para la generación asistida por IA.
+  promptTemplate  String        @map("prompt_template")
+  isActive        Boolean       @default(true) @map("is_active")
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  actas Acta[]
+
+  @@unique([initiativeType, version])
+  @@map("acta_templates")
+}
+
+model Acta {
+  id           String @id @default(uuid()) @db.Uuid
+  initiativeId String @map("initiative_id") @db.Uuid
+  templateId   String @map("template_id") @db.Uuid
+
+  version Int        @default(1)
+  title   String
+  status  ActaStatus @default(DRAFT)
+
+  /// Datos estructurados del formulario. Fuente de verdad: alimenta tanto la
+  /// generación por IA como la vista de reporte para Cinergia Core.
+  inputData Json @map("input_data")
+
+  generatedContent String? @map("generated_content") // markdown
+  aiModel          String? @map("ai_model")
+  aiPromptVersion  String? @map("ai_prompt_version")
+
+  /// Aprobación de decanato para EVENT y PROJECT. Informativo, no bloquea
+  /// el flujo interno de aprobación del Director de Área.
+  externalApprovalStatus ExternalApprovalStatus @default(NOT_APPLICABLE) @map("external_approval_status")
+
+  createdByUserId  String    @map("created_by_user_id") @db.Uuid
+  approvedByUserId String?   @map("approved_by_user_id") @db.Uuid
+  approvedAt       DateTime? @map("approved_at") @db.Timestamptz(6)
+  publishedAt      DateTime? @map("published_at") @db.Timestamptz(6)
+  pdfUrl           String?   @map("pdf_url")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  initiative Initiative   @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  template   ActaTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  createdBy  User         @relation("ActaCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  approvedBy User?        @relation("ActaApprover", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+
+  attachments Attachment[]
+
+  @@unique([initiativeId, version])
+  @@index([initiativeId, status])
+  @@map("actas")
+}
+
+// ═══════════════════════════════════════════════════════════
+// LOGÍSTICA
+// ═══════════════════════════════════════════════════════════
+
+model LogisticsChecklist {
+  id           String   @id @default(uuid()) @db.Uuid
+  initiativeId String   @unique @map("initiative_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  initiative Initiative      @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  items      LogisticsItem[]
+
+  @@map("logistics_checklists")
+}
+
+model LogisticsItem {
+  id          String @id @default(uuid()) @db.Uuid
+  checklistId String @map("checklist_id") @db.Uuid
+
+  category    String // permisos, materiales, difusión, catering, seguridad, tecnología
+  description String
+  position    Int
+  /// Los ítems required=true deben estar DONE para habilitar READY.
+  required    Boolean @default(false)
+  /// Si true, marcar DONE exige adjuntar evidencia.
+  needsEvidence Boolean @default(false) @map("needs_evidence")
+
+  status         LogisticsItemStatus @default(PENDING)
+  doneByUserId   String?             @map("done_by_user_id") @db.Uuid
+  doneAt         DateTime?           @map("done_at") @db.Timestamptz(6)
+  notApplicableReason String?        @map("not_applicable_reason")
+
+  /// Si nació de un input del Radar.
+  sourceInputId String? @unique @map("source_input_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  checklist   LogisticsChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  doneBy      User?              @relation(fields: [doneByUserId], references: [id], onDelete: SetNull)
+  sourceInput InitiativeInput?   @relation(fields: [sourceInputId], references: [id], onDelete: SetNull)
+
+  attachments Attachment[]
+
+  @@index([checklistId, status])
+  @@map("logistics_items")
+}
+
+// ═══════════════════════════════════════════════════════════
+// ENCUESTAS Y MÉTRICAS
+// ═══════════════════════════════════════════════════════════
+
+enum QuestionType {
+  SCALE_1_5
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  OPEN_TEXT
+  NUMERIC
+}
+
+model Survey {
+  id           String @id @default(uuid()) @db.Uuid
+  initiativeId String @map("initiative_id") @db.Uuid
+
+  title       String
+  description String?
+  status      SurveyStatus @default(DRAFT)
+  /// Inmutable una vez ACTIVE. Retención de respuestas anónimas: 2 años.
+  anonymous   Boolean      @default(true)
+
+  opensAt  DateTime? @map("opens_at") @db.Timestamptz(6)
+  closesAt DateTime? @map("closes_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  initiative Initiative       @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  questions  SurveyQuestion[]
+  responses  SurveyResponse[]
+
+  @@index([initiativeId, status])
+  @@map("surveys")
+}
+
+model SurveyQuestion {
+  id       String       @id @default(uuid()) @db.Uuid
+  surveyId String       @map("survey_id") @db.Uuid
+  text     String
+  type     QuestionType
+  position Int
+  required Boolean      @default(true)
+  options  Json? // para SINGLE_CHOICE / MULTIPLE_CHOICE
+
+  survey  Survey        @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  answers SurveyAnswer[]
+
+  @@unique([surveyId, position])
+  @@map("survey_questions")
+}
+
+model SurveyResponse {
+  id       String @id @default(uuid()) @db.Uuid
+  surveyId String @map("survey_id") @db.Uuid
+  /// Null cuando la encuesta es anónima; en ese caso se usa respondentHash
+  /// solo para impedir doble envío, sin poder reconstruir la identidad.
+  respondentUserId String? @map("respondent_user_id") @db.Uuid
+  respondentHash   String  @map("respondent_hash")
+  submittedAt      DateTime @default(now()) @map("submitted_at") @db.Timestamptz(6)
+
+  survey    Survey        @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  respondent User?        @relation(fields: [respondentUserId], references: [id], onDelete: SetNull)
+  answers   SurveyAnswer[]
+
+  @@unique([surveyId, respondentHash])
+  @@map("survey_responses")
+}
+
+model SurveyAnswer {
+  id          String  @id @default(uuid()) @db.Uuid
+  responseId  String  @map("response_id") @db.Uuid
+  questionId  String  @map("question_id") @db.Uuid
+  valueNumber Decimal? @map("value_number") @db.Decimal(10, 2)
+  valueText   String?  @map("value_text")
+  valueJson   Json?    @map("value_json")
+
+  response SurveyResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question SurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([responseId, questionId])
+  @@map("survey_answers")
+}
+
+// ═══════════════════════════════════════════════════════════
+// OBSERVACIONES — diálogo de coordinación
+// ═══════════════════════════════════════════════════════════
+
+model Observation {
+  id           String @id @default(uuid()) @db.Uuid
+  initiativeId String @map("initiative_id") @db.Uuid
+
+  authorUserId String                @map("author_user_id") @db.Uuid
+  body         String
+  visibility   ObservationVisibility @default(INTERNAL)
+  resolved     Boolean               @default(false)
+  resolvedAt   DateTime?             @map("resolved_at") @db.Timestamptz(6)
+
+  parentId String? @map("parent_id") @db.Uuid
+
+  /// Si nació de un input del Radar convertido en observación formal.
+  sourceInputId String? @unique @map("source_input_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  initiative  Initiative       @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  author      User             @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
+  parent      Observation?     @relation("ObservationThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Observation[]    @relation("ObservationThread")
+  sourceInput InitiativeInput? @relation(fields: [sourceInputId], references: [id], onDelete: SetNull)
+
+  @@index([initiativeId, visibility, resolved])
+  @@map("observations")
+}
+
+// ═══════════════════════════════════════════════════════════
+// RADAR OPERATIVO
+// ═══════════════════════════════════════════════════════════
+
+model InitiativeInput {
+  id           String @id @default(uuid()) @db.Uuid
+  initiativeId String @map("initiative_id") @db.Uuid
+
+  authorUserId String @map("author_user_id") @db.Uuid
+  kind         InputKind
+  title        String
+  description  String
+  priority     Priority
+  status       InputStatus @default(PROPOSED)
+
+  /// Triage del Coordinador: prevalida, reclasifica, marca duplicado, recomienda.
+  reviewedByUserId String?   @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt       DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  reviewNotes      String?   @map("review_notes")
+  duplicateOfId    String?   @map("duplicate_of_id") @db.Uuid
+
+  /// Conversión: solo Director de Área o Presidencia.
+  convertedToType   ConvertedToType? @map("converted_to_type")
+  convertedToId     String?          @map("converted_to_id") @db.Uuid
+  convertedByUserId String?          @map("converted_by_user_id") @db.Uuid
+  convertedAt       DateTime?        @map("converted_at") @db.Timestamptz(6)
+
+  rejectedReason String? @map("rejected_reason")
+  /// Marcado por cron #20 cuando lleva más de 48 h en PROPOSED sin acción.
+  escalatedAt    DateTime? @map("escalated_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  initiative  Initiative       @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  author      User             @relation("InputAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  reviewedBy  User?            @relation("InputReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  convertedBy User?            @relation("InputConverter", fields: [convertedByUserId], references: [id], onDelete: SetNull)
+  duplicateOf InitiativeInput? @relation("InputDuplicate", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates  InitiativeInput[] @relation("InputDuplicate")
+
+  transitions   InitiativeInputTransition[]
+  derivedTask   Task?
+  derivedRisk   InitiativeRisk?
+  derivedItem   LogisticsItem?
+  derivedObs    Observation?
+  attachments   Attachment[]
+
+  @@index([initiativeId, status, priority])
+  @@index([status, createdAt])
+  @@index([authorUserId, status])
+  @@map("initiative_inputs")
+}
+
+model InitiativeInputTransition {
+  id          String       @id @default(uuid()) @db.Uuid
+  inputId     String       @map("input_id") @db.Uuid
+  fromStatus  InputStatus? @map("from_status")
+  toStatus    InputStatus  @map("to_status")
+  actorUserId String       @map("actor_user_id") @db.Uuid
+  notes       String?
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  input InitiativeInput @relation(fields: [inputId], references: [id], onDelete: Cascade)
+  actor User            @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([inputId, createdAt])
+  @@map("initiative_input_transitions")
+}
+
+model InitiativeRisk {
+  id           String @id @default(uuid()) @db.Uuid
+  initiativeId String @map("initiative_id") @db.Uuid
+
+  title          String
+  description    String
+  likelihood     LikelihoodImpact
+  impact         LikelihoodImpact
+  mitigationPlan String?          @map("mitigation_plan")
+  ownerUserId    String?          @map("owner_user_id") @db.Uuid
+  status         RiskStatus       @default(ACTIVE)
+
+  sourceInputId String? @unique @map("source_input_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  initiative  Initiative       @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  owner       User?            @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  sourceInput InitiativeInput? @relation(fields: [sourceInputId], references: [id], onDelete: SetNull)
+
+  @@index([initiativeId, status, impact])
+  @@map("initiative_risks")
+}
+
+// ═══════════════════════════════════════════════════════════
+// IDEACIÓN — campañas periódicas
+// ═══════════════════════════════════════════════════════════
+
+model IdeaCampaign {
+  id          String         @id @default(uuid()) @db.Uuid
+  title       String
+  description String?
+  status      CampaignStatus @default(SCHEDULED)
+  /// Máximo 3 días entre opensAt y closesAt; mínimo 7 días desde el cierre
+  /// de la campaña anterior. Ambas reglas se validan en aplicación.
+  opensAt     DateTime       @map("opens_at") @db.Timestamptz(6)
+  closesAt    DateTime       @map("closes_at") @db.Timestamptz(6)
+  voteThreshold Int          @default(5) @map("vote_threshold")
+
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  createdBy User   @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  ideas     Idea[]
+
+  @@index([status, opensAt])
+  @@map("idea_campaigns")
+}
+
+model Idea {
+  id         String @id @default(uuid()) @db.Uuid
+  campaignId String @map("campaign_id") @db.Uuid
+  /// El área determina el tipo de iniciativa al promover.
+  areaId     String @map("area_id") @db.Uuid
+
+  authorUserId String     @map("author_user_id") @db.Uuid
+  title        String
+  description  String
+  objective    String
+  modality     Modality
+  status       IdeaStatus @default(DRAFT)
+
+  discardedReason String? @map("discarded_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  campaign   IdeaCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  area       Area         @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  author     User         @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
+  votes      IdeaVote[]
+  initiative Initiative?
+
+  @@index([campaignId, status])
+  @@index([areaId, status])
+  @@map("ideas")
+}
+
+model IdeaVote {
+  id        String   @id @default(uuid()) @db.Uuid
+  ideaId    String   @map("idea_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  idea Idea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Un voto por persona por idea. No se puede votar la propia idea (validación de aplicación).
+  @@unique([ideaId, userId])
+  @@map("idea_votes")
+}
+
+// ═══════════════════════════════════════════════════════════
+// MÉTRICAS HISTÓRICAS Y PROPUESTAS DE MEJORA
+// ═══════════════════════════════════════════════════════════
+
+/// Un registro por cada recálculo de semáforo. Nunca se sobreescribe:
+/// es la fuente de "evolución del semáforo" en los dashboards.
+model RiskSnapshot {
+  id           String    @id @default(uuid()) @db.Uuid
+  initiativeId String    @map("initiative_id") @db.Uuid
+  riskLevel    RiskLevel @map("risk_level")
+  /// Condiciones que dispararon el nivel, para poder explicar el porqué después.
+  reasons      Json?
+  computedAt   DateTime  @default(now()) @map("computed_at") @db.Timestamptz(6)
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+
+  @@index([initiativeId, computedAt])
+  @@index([computedAt])
+  @@map("risk_snapshots")
+}
+
+/// Canal formal de Reportes y Métricas hacia Presidencia / Directores de Área.
+model ImprovementProposal {
+  id          String         @id @default(uuid()) @db.Uuid
+  authorUserId String        @map("author_user_id") @db.Uuid
+  title       String
+  rationale   String // debe referenciar un KPI o tendencia observada
+  suggestedAction String     @map("suggested_action")
+  status      ProposalStatus @default(PROPOSED)
+
+  /// Áreas afectadas. Si es una sola, el Director de esa área puede aprobar
+  /// directamente; si son varias, la decisión es de Presidencia.
+  affectedAreaIds String[] @map("affected_area_ids") @db.Uuid
+
+  decidedByUserId String?   @map("decided_by_user_id") @db.Uuid
+  decidedAt       DateTime? @map("decided_at") @db.Timestamptz(6)
+  decisionNotes   String?   @map("decision_notes")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  author    User  @relation("ProposalAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  decidedBy User? @relation("ProposalDecider", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@map("improvement_proposals")
+}
+
+// ═══════════════════════════════════════════════════════════
+// NOTIFICACIONES
+// ═══════════════════════════════════════════════════════════
+
+model Notification {
+  id       String               @id @default(uuid()) @db.Uuid
+  userId   String               @map("user_id") @db.Uuid
+  category NotificationCategory
+  /// Identificador del trigger (ej. "task.overdue"), usado para idempotencia.
+  kind     String
+
+  subjectType String  @map("subject_type")
+  subjectId   String  @map("subject_id") @db.Uuid
+  title       String
+  body        String?
+  linkPath    String? @map("link_path")
+
+  readAt          DateTime? @map("read_at") @db.Timestamptz(6)
+  emailSentAt     DateTime? @map("email_sent_at") @db.Timestamptz(6)
+  whatsappSentAt  DateTime? @map("whatsapp_sent_at") @db.Timestamptz(6)
+  archivedAt      DateTime? @map("archived_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Idempotencia: el mismo trigger sobre el mismo objeto no duplica.
+  @@unique([userId, kind, subjectId])
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id       String               @id @default(uuid()) @db.Uuid
+  userId   String               @map("user_id") @db.Uuid
+  channel  NotificationChannel
+  category NotificationCategory
+  enabled  Boolean              @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channel, category])
+  @@map("notification_preferences")
+}
+
+// ═══════════════════════════════════════════════════════════
+// AUDITORÍA Y ADJUNTOS
+// ═══════════════════════════════════════════════════════════
+
+/// Append-only. Los permisos de UPDATE y DELETE se revocan a nivel de rol
+/// de base de datos (ver prisma/sql/02_rls_policies.sql). Retención: 3 años.
+model AuditLog {
+  id          String  @id @default(uuid()) @db.Uuid
+  actorUserId String? @map("actor_user_id") @db.Uuid
+  action      String // "initiative.approved", "task.deleted", ...
+  module      String
+
+  subjectType String  @map("subject_type")
+  subjectId   String? @map("subject_id") @db.Uuid
+  /// Denormalizado para poder buscar por código sin joins.
+  initiativeCode String? @map("initiative_code")
+
+  beforeState Json? @map("before_state")
+  afterState  Json? @map("after_state")
+
+  ip        String?  @db.Inet
+  userAgent String?  @map("user_agent")
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([subjectType, subjectId, occurredAt])
+  @@index([initiativeCode, occurredAt])
+  @@index([occurredAt])
+  @@map("audit_log")
+}
+
+model Attachment {
+  id       String @id @default(uuid()) @db.Uuid
+  filename String
+  contentType String @map("content_type")
+  sizeBytes   Int    @map("size_bytes")
+  storagePath String @map("storage_path")
+
+  status AttachmentStatus @default(ACTIVE)
+
+  uploadedByUserId String   @map("uploaded_by_user_id") @db.Uuid
+  uploadedAt       DateTime @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  /// Entidad dueña. Los permisos se derivan de ella, no del adjunto.
+  initiativeId    String? @map("initiative_id") @db.Uuid
+  taskId          String? @map("task_id") @db.Uuid
+  actaId          String? @map("acta_id") @db.Uuid
+  logisticsItemId String? @map("logistics_item_id") @db.Uuid
+  inputId         String? @map("input_id") @db.Uuid
+
+  uploadedBy    User             @relation(fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  initiative    Initiative?      @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  task          Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  acta          Acta?            @relation(fields: [actaId], references: [id], onDelete: Cascade)
+  logisticsItem LogisticsItem?   @relation(fields: [logisticsItemId], references: [id], onDelete: Cascade)
+  input         InitiativeInput? @relation(fields: [inputId], references: [id], onDelete: Cascade)
+
+  @@index([initiativeId, status])
+  @@index([status, deletedAt])
+  @@map("attachments")
+}
+
+// ═══════════════════════════════════════════════════════════
+// CONFIGURACIÓN GLOBAL
+// ═══════════════════════════════════════════════════════════
+
+/// Parámetros ajustables sin desplegar código. Semilla inicial incluye
+/// el umbral de escalación a Presidencia (S/ 2,000).
+model AppSetting {
+  key         String   @id
+  value       Json
+  description String?
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("app_settings")
+}
