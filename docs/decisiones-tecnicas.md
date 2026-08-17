@@ -291,6 +291,36 @@ de prueba (que nunca habían recibido un correo real hasta este punto).
 
 ---
 
+## D13 · Invitar sin correo automático: `generateLink` en vez de `inviteUserByEmail`
+
+**Decisión.** `inviteUser()` usa `admin.auth.admin.generateLink({ type:
+'invite', email, ... })` en vez de `inviteUserByEmail`. La acción ya no
+intenta enviar ningún correo — construye el enlace de invitación
+(`/auth/confirm?token_hash=...&type=invite&next=/completar-registro`) a
+partir de `data.properties.hashed_token` y lo devuelve al formulario, que
+lo muestra con un botón de copiar en vez de redirigir a `/usuarios`.
+
+**Por qué.** Resend, sin un dominio propio verificado, solo entrega
+correos del remitente de pruebas (`onboarding@resend.dev`) a la dirección
+dueña de la cuenta de Resend — no a terceros. Eso significa que
+`inviteUserByEmail` solo funcionaba para invitarse a uno mismo; con
+cualquier otra persona real fallaba con `"Error sending invite email"`.
+Comprar y verificar un dominio (~S/40/año + propagación DNS) es la
+solución de fondo, pero no bloqueante: mientras tanto, Presidencia genera
+el enlace desde la app y lo entrega ella misma por el canal que prefiera
+(WhatsApp, correo personal). La persona invitada de todas formas define su
+propia contraseña sin que Presidencia la vea nunca — solo cambia quién
+entrega el enlace inicial, no la garantía de privacidad de la contraseña.
+
+**Consecuencia práctica.** Cuando haya un dominio verificado en Resend,
+se puede volver a `inviteUserByEmail` (o mantener ambos: intentar el envío
+automático y caer a mostrar el enlace si falla). El enlace generado por
+`generateLink` es de un solo uso y expira igual que uno enviado por
+correo — la política de expiración la controla Supabase, no el código de
+la app.
+
+---
+
 ## Pendiente de definir
 
 - **Estructura de `acta_templates.structure_schema`** para `EVENT` y `PROJECT`.
