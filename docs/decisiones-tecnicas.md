@@ -462,11 +462,54 @@ RLS (`tasks_insert` ahora exige `can_manage_initiative`).
 
 ---
 
+## D17 · Módulo de Actas: formulario + flujo de aprobación, sin IA ni PDF todavía
+
+**Decisión.** `/iniciativas/[code]/acta` cubre el ciclo completo que
+desbloquea `validateReady` (D-comentario en `state-machine.ts`):
+Borrador → En revisión → Aprobada → Publicada, más la firma extra de
+Presidencia para `PROJECT`. **No** incluye generación asistida por IA
+(`acta.generated_content`, `ai_model`) ni exportación a PDF
+(`acta.pdf_url`) — decisión explícita del alcance, no un olvido: esos dos
+campos no son necesarios para que una iniciativa avance de estado, y
+construir la generación por IA merece su propia sesión (elegir el prompt
+final, probarlo contra actas reales, decidir el formato del PDF).
+
+**Autollenado real, no maquetado.** Cada plantilla (`src/lib/actas/templates.ts`)
+marca el origen de cada campo (`FieldSource`): los que vienen de la
+iniciativa, el equipo, los riesgos registrados o los hitos del calendario
+se calculan solos al crear el acta (`src/lib/actas/autofill.ts`) y se
+guardan tal cual en `input_data` — no se recalculan después, para que el
+acta quede como una fotografía del momento en que se elaboró. Solo los
+campos marcados `manual` piden que alguien escriba.
+
+**Flujo de decisión, no calcado de RLS.** `actas_insert`/`actas_update`
+en RLS permiten escribir a cualquiera que gestione la iniciativa
+(Coordinador incluido) — igual que con Tareas (D7: RLS protege el
+perímetro, no la lógica de negocio). La regla real vive en
+`src/lib/actas/state-machine.ts`: cualquier gestor puede redactar y
+enviar a revisión, pero pasar de "En revisión" a "Aprobada" (o devolver a
+borrador) exige ser Director de Área o Presidencia — un Coordinador no se
+autoaprueba su propia acta.
+
+**Firma de Presidencia como paso aparte, no como parte de "Aprobar".**
+Para `PROJECT` (`requiresPresidencySignature: true` en la plantilla), el
+acta puede llegar a `APPROVED` sin que Presidencia haya firmado —
+`validateReady` exige las dos cosas por separado (`status` Y
+`presidency_approved_at`). "Publicar" queda bloqueado hasta que exista la
+firma. Verificado con sesiones reales el 2026-08-17: con Director de
+Proyectos, el acta llegó a `APPROVED` y la iniciativa se quedó bloqueada
+con el mensaje exacto de `validateReady` ("...también requiere la firma
+de Presidencia..."); tras firmar como Presidencia, el mismo botón
+"Avanzar a Listo para ejecución" se desbloqueó sin recargar código, solo
+con el cambio de estado en la base.
+
+---
+
 ## Pendiente de definir
 
-- **Estructura de `acta_templates.structure_schema`** para `EVENT` y `PROJECT`.
-  Bloqueado hasta recibir las actas estandarizadas de ambas áreas.
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable
   por Presidencia sin desplegar código.
 - **Proveedor de WhatsApp**: recomendado WhatsApp Business Cloud API (oficial).
   Sin implementar hasta Fase 3.
+- **Generación de Actas por IA y exportación a PDF** (D17): alcance
+  explícitamente diferido, no implementado.

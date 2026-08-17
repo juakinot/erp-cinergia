@@ -92,12 +92,20 @@ export default async function InitiativeDetailPage({ params }: { params: Promise
               {TYPE_LABELS[row.type]} · {row.areas?.name ?? '—'} · Coordina {row.coordinator?.full_name ?? '—'}
             </p>
             {hasBoard && (
-              <Link
-                href={`/iniciativas/${row.code}/tareas`}
-                className="mt-2 inline-block text-xs font-semibold text-[#0066CC] hover:underline"
-              >
-                Ver tablero de tareas →
-              </Link>
+              <div className="mt-2 flex gap-4">
+                <Link
+                  href={`/iniciativas/${row.code}/tareas`}
+                  className="text-xs font-semibold text-[#0066CC] hover:underline"
+                >
+                  Ver tablero de tareas →
+                </Link>
+                <Link
+                  href={`/iniciativas/${row.code}/acta`}
+                  className="text-xs font-semibold text-[#0066CC] hover:underline"
+                >
+                  Ver acta →
+                </Link>
+              </div>
             )}
           </div>
           <span
