@@ -38,7 +38,9 @@
       "Bash(node scripts/run-sql.mjs prisma/migrations/20260816220000_uuid_column_defaults/migration.sql)",
       "Bash(node scripts/run-sql.mjs prisma/migrations/20260816221500_updated_at_trigger/migration.sql)",
       "Bash(node ./scripts/_tmp-check-users.mjs)",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git commit --allow-empty -m ' *)"
     ]
   }
 }

@@ -212,9 +212,11 @@ create policy tasks_select on public.tasks for select using (
   public.can_view_initiative(initiative_id)
 );
 
+-- Crear tareas es autoridad de quien gestiona la iniciativa (Coordinador+),
+-- no de cualquiera que la pueda ver.
 drop policy if exists tasks_insert on public.tasks;
 create policy tasks_insert on public.tasks for insert with check (
-  public.can_view_initiative(initiative_id)
+  public.can_manage_initiative(initiative_id)
 );
 
 -- Editar: quien gestiona la iniciativa, o el asignado sobre su propia tarea.
@@ -234,32 +236,81 @@ create policy task_transitions_select on public.task_transitions for select usin
   exists (select 1 from public.tasks t where t.id = task_id and public.can_view_initiative(t.initiative_id))
 );
 
+-- Mismo criterio que tasks_update: quien gestiona la iniciativa, o la
+-- persona asignada dejando registro de su propio movimiento.
 drop policy if exists task_transitions_insert on public.task_transitions;
 create policy task_transitions_insert on public.task_transitions for insert with check (
   actor_user_id = auth.uid()
-  and exists (select 1 from public.tasks t where t.id = task_id and public.can_view_initiative(t.initiative_id))
+  and exists (
+    select 1 from public.tasks t
+    where t.id = task_id
+      and (public.can_manage_initiative(t.initiative_id) or t.assignee_user_id = auth.uid())
+  )
 );
 
 -- ═══════════════════════════════════════════════════════════
 -- KANBAN · CALENDARIO · LOGÍSTICA (derivan de la iniciativa)
 -- ═══════════════════════════════════════════════════════════
 
+-- Lectura: cualquiera que vea la iniciativa. Escritura: quien la gestiona
+-- (el tablero y sus columnas son estructura fija, creada automáticamente
+-- al aprobar — no algo que un Miembro deba poder tocar).
 drop policy if exists kanban_boards_all on public.kanban_boards;
-create policy kanban_boards_all on public.kanban_boards for all using (
+drop policy if exists kanban_boards_select on public.kanban_boards;
+create policy kanban_boards_select on public.kanban_boards for select using (
   public.can_view_initiative(initiative_id)
+);
+drop policy if exists kanban_boards_write on public.kanban_boards;
+create policy kanban_boards_write on public.kanban_boards for all using (
+  public.can_manage_initiative(initiative_id)
 );
 
 drop policy if exists kanban_columns_all on public.kanban_columns;
-create policy kanban_columns_all on public.kanban_columns for all using (
+drop policy if exists kanban_columns_select on public.kanban_columns;
+create policy kanban_columns_select on public.kanban_columns for select using (
   exists (select 1 from public.kanban_boards b where b.id = board_id and public.can_view_initiative(b.initiative_id))
 );
+drop policy if exists kanban_columns_write on public.kanban_columns;
+create policy kanban_columns_write on public.kanban_columns for all using (
+  exists (select 1 from public.kanban_boards b where b.id = board_id and public.can_manage_initiative(b.initiative_id))
+);
 
+-- Las tarjetas sí tienen un autoservicio: la persona asignada a la tarea
+-- puede mover su propia tarjeta (mismo criterio que tasks_update), aunque
+-- no gestione la iniciativa. Crear/borrar tarjetas queda solo para quien
+-- gestiona — nace junto con la tarea, no suelta.
 drop policy if exists kanban_cards_all on public.kanban_cards;
-create policy kanban_cards_all on public.kanban_cards for all using (
+drop policy if exists kanban_cards_select on public.kanban_cards;
+create policy kanban_cards_select on public.kanban_cards for select using (
   exists (
     select 1 from public.kanban_columns c
     join public.kanban_boards b on b.id = c.board_id
     where c.id = column_id and public.can_view_initiative(b.initiative_id)
+  )
+);
+drop policy if exists kanban_cards_insert on public.kanban_cards;
+create policy kanban_cards_insert on public.kanban_cards for insert with check (
+  exists (
+    select 1 from public.kanban_columns c
+    join public.kanban_boards b on b.id = c.board_id
+    where c.id = column_id and public.can_manage_initiative(b.initiative_id)
+  )
+);
+drop policy if exists kanban_cards_update on public.kanban_cards;
+create policy kanban_cards_update on public.kanban_cards for update using (
+  exists (
+    select 1 from public.kanban_columns c
+    join public.kanban_boards b on b.id = c.board_id
+    where c.id = column_id and public.can_manage_initiative(b.initiative_id)
+  )
+  or exists (select 1 from public.tasks t where t.id = task_id and t.assignee_user_id = auth.uid())
+);
+drop policy if exists kanban_cards_delete on public.kanban_cards;
+create policy kanban_cards_delete on public.kanban_cards for delete using (
+  exists (
+    select 1 from public.kanban_columns c
+    join public.kanban_boards b on b.id = c.board_id
+    where c.id = column_id and public.can_manage_initiative(b.initiative_id)
   )
 );
 

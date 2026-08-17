@@ -394,6 +394,74 @@ para que Presidencia reintente sin haber perdido nada.
 
 ---
 
+## D16 · Módulo de Tareas/Kanban: mover con botones, no arrastrar
+
+**Decisión.** El tablero (`/iniciativas/[code]/tareas`) mueve tarjetas con
+botones de acción por tarjeta ("Iniciar", "Enviar a revisión", "Bloquear",
+"Completar", "Cancelar") — no con arrastrar-y-soltar. Cada botón visible
+es exactamente una transición válida desde el estado actual, calculada con
+el mismo grafo (`TASK_TRANSITIONS` en `src/lib/tasks/state-machine.ts`)
+que valida el Server Action — la UI nunca ofrece un movimiento que el
+servidor vaya a rechazar.
+
+**Por qué.** Mismo criterio que ya usa el detalle de Iniciativas (botones
++ vista previa de validación, no una interfaz "libre"): más simple de
+construir, más fácil de verificar con el navegador automatizado, y evita
+la complejidad de reconciliar posiciones de arrastre con `KanbanCard.position`
+bajo escritura concurrente. Arrastrar-y-soltar queda como mejora visual
+futura, no como bloqueante.
+
+**Reglas de negocio nuevas en `validateTaskTransition`:**
+- Bloquear exige un motivo (no se puede bloquear sin explicar por qué).
+- Completar una tarea de prioridad **Alta** o **Crítica**
+  (`requires_approval = true`) solo lo puede hacer quien gestiona la
+  iniciativa — la persona asignada puede llevarla hasta "En revisión",
+  pero no autocompletarla. Sin esto, `requires_approval` era un campo del
+  esquema sin ningún efecto real.
+- `OVERDUE` (vencida) queda sin usar a propósito: nada la calcula ni
+  asigna todavía — haría falta un job programado que compare `due_date`
+  contra la fecha actual. Documentado como límite conocido, igual que
+  Actas/Logística en `validateReady` (ver el comentario de esa función).
+
+**Hueco de RLS cerrado de paso.** Antes de este módulo, cualquiera que
+pudiera *ver* una iniciativa podía crear, mover o borrar tarjetas y
+columnas del Kanban (`kanban_boards_all`, `kanban_columns_all`,
+`kanban_cards_all` usaban `can_view_initiative` para *todo*, insert
+incluido — ver `tasks_insert` también). Se separaron lectura (ver) de
+escritura (gestionar), con un autoservicio explícito para que la persona
+asignada mueva su propia tarjeta sin depender de `can_manage_initiative`.
+Nunca se explotó — se encontró revisando el código antes de construir
+encima, no en producción.
+
+**Bug de autorización encontrado de paso.** La página de detalle de
+Iniciativas calculaba `canActOnArea` sin incluir a `COORDINATOR`, pese a
+que `can_manage_initiative` (RLS) y varios comentarios del propio
+state-machine ("manual por CO/DA") sí le dan esa autoridad. Un Coordinador
+no podía avanzar sus propias iniciativas desde la UI — solo verlas. Se
+extrajo `canManageInitiative()` a `src/lib/initiatives/permissions.ts`
+(espeja `can_manage_initiative()` de RLS) y se usa ahora en ambas páginas.
+
+**Gotcha de PostgREST.** `kanban_cards.task_id` es `@unique` en Prisma (1
+a 1 con `tasks`), pero como la FK vive en `kanban_cards` (relación
+inversa desde `tasks`), PostgREST siempre lo embebe como arreglo
+(`kanban_card: [...]`), nunca como objeto único — sin importar la
+restricción unique. Se normaliza a objeto o `null` en `page.tsx`, antes
+de pasarlo a los componentes de cliente. Se detectó porque el tablero
+mostraba "Sin tareas" en todas las columnas pese a que la tarea sí
+existía en la base — confirmado comparando la consulta directa (con
+`service_role`, sin RLS) contra lo que renderizaba la página.
+
+**Verificado con sesiones reales** (usuarios de prueba, `npm run
+seed:test-users`): Director de Área crea una tarea de prioridad Alta y la
+mueve por todo el flujo (Pendiente → En progreso → Bloqueada → En
+progreso → En revisión); el Miembro asignado puede autoservicio-mover su
+propia tarjeta pero no ve "Completar" (por `requires_approval`) ni
+"Reasignar" (no gestiona la iniciativa); un intento directo de `insert`
+en `tasks` saltándose la Server Action, como Miembro, es rechazado por
+RLS (`tasks_insert` ahora exige `can_manage_initiative`).
+
+---
+
 ## Pendiente de definir
 
 - **Estructura de `acta_templates.structure_schema`** para `EVENT` y `PROJECT`.

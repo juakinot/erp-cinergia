@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { validateTransition } from '@/lib/initiatives/state-machine';
+import { canManageInitiative } from '@/lib/initiatives/permissions';
 import { STATUS_LABELS, TYPE_LABELS, type InitiativeRow, type InitiativeStatus } from '@/lib/initiatives/types';
 import { approveInitiative, requestEscalation, advanceInitiative } from '../actions';
 import { ActionButton } from './action-button';
@@ -59,7 +60,8 @@ export default async function InitiativeDetailPage({ params }: { params: Promise
     .order('created_at', { ascending: false });
 
   const actor = { id: user.id, role: user.role, areaId: user.areaId };
-  const canActOnArea = user.role === 'PRESIDENT' || (user.role === 'AREA_DIRECTOR' && user.areaId === row.area_id);
+  const canActOnArea = canManageInitiative(actor, row);
+  const hasBoard = row.status !== 'IDEA' && row.status !== 'PROPOSAL' && row.status !== 'APPROVED';
 
   // Vista previa real de la próxima transición — el motor decide, no la UI.
   let preview: { ok: boolean; reason?: string } | null = null;
@@ -89,6 +91,14 @@ export default async function InitiativeDetailPage({ params }: { params: Promise
             <p className="mt-1 text-sm text-[#5A6B82]">
               {TYPE_LABELS[row.type]} · {row.areas?.name ?? '—'} · Coordina {row.coordinator?.full_name ?? '—'}
             </p>
+            {hasBoard && (
+              <Link
+                href={`/iniciativas/${row.code}/tareas`}
+                className="mt-2 inline-block text-xs font-semibold text-[#0066CC] hover:underline"
+              >
+                Ver tablero de tareas →
+              </Link>
+            )}
           </div>
           <span
             className={`inline-block rounded px-2 py-1 text-[10px] font-semibold tracking-wide uppercase ${RISK_STYLES[row.risk_level]}`}
