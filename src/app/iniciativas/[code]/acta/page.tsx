@@ -1,10 +1,11 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { canManageInitiative } from '@/lib/initiatives/permissions';
 import { missingRequiredFields } from '@/lib/actas/autofill';
 import { ACTA_TEMPLATES } from '@/lib/actas/templates';
+import { AppShell } from '@/components/app-shell';
+import { Breadcrumb } from '@/components/breadcrumb';
 import { CreateActaButton } from './create-acta-button';
 import { ActaForm } from './acta-form';
 
@@ -48,48 +49,37 @@ export default async function ActaPage({ params }: { params: Promise<{ code: str
   const missingCount = template && acta ? missingRequiredFields(template, acta.input_data as Record<string, unknown>).length : 0;
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#F4F7FB]">
-      <header className="border-b border-[#E8EEF5] bg-white px-6 py-4">
-        <Link href={`/iniciativas/${row.code}`} className="text-xs font-medium text-[#5A6B82] hover:text-[#003360]">
-          ← {row.code}
-        </Link>
-      </header>
+    <AppShell user={user} active="/iniciativas">
+      <Breadcrumb backHref={`/iniciativas/${row.code}`} backLabel={row.code} code="Acta" />
+      <h1 style={{ margin: '0 0 20px', fontSize: 20, fontWeight: 700, color: 'var(--text-1)' }}>{row.title}</h1>
 
-      <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
-        <p className="font-mono text-xs font-semibold text-[#0066CC]">{row.code} · Acta</p>
-        <h1 className="mt-1 mb-6 text-xl font-bold text-[#003360]">{row.title}</h1>
+      {!template && (
+        <div className="empty">No hay plantilla de acta definida para el tipo &quot;{row.type}&quot;.</div>
+      )}
 
-        {!template && (
-          <div className="rounded-lg border border-[#E8EEF5] bg-white p-6 text-sm text-[#5A6B82]">
-            No hay plantilla de acta definida para el tipo &quot;{row.type}&quot;.
-          </div>
-        )}
+      {template && !acta && (
+        <div className="panel">
+          <p style={{ marginBottom: 16, fontSize: 13, color: 'var(--text-2)' }}>
+            Todavía no existe un acta para esta iniciativa — <strong style={{ color: 'var(--text-1)' }}>{template.name}</strong>.
+          </p>
+          {isManager ? (
+            <CreateActaButton initiativeCode={row.code} />
+          ) : (
+            <p style={{ fontSize: 13, color: 'var(--text-2)' }}>Solo quien gestiona la iniciativa puede crearla.</p>
+          )}
+        </div>
+      )}
 
-        {template && !acta && (
-          <div className="rounded-lg border border-[#E8EEF5] bg-white p-6">
-            <p className="mb-4 text-sm text-[#5A6B82]">
-              Todavía no existe un acta para esta iniciativa —{' '}
-              <strong>{template.name}</strong>.
-            </p>
-            {isManager ? (
-              <CreateActaButton initiativeCode={row.code} />
-            ) : (
-              <p className="text-sm text-[#5A6B82]">Solo quien gestiona la iniciativa puede crearla.</p>
-            )}
-          </div>
-        )}
-
-        {template && acta && (
-          <ActaForm
-            initiativeCode={row.code}
-            template={template}
-            acta={acta as unknown as Parameters<typeof ActaForm>[0]['acta']}
-            isManager={isManager}
-            actorRole={user.role}
-            missingCount={missingCount}
-          />
-        )}
-      </div>
-    </main>
+      {template && acta && (
+        <ActaForm
+          initiativeCode={row.code}
+          template={template}
+          acta={acta as unknown as Parameters<typeof ActaForm>[0]['acta']}
+          isManager={isManager}
+          actorRole={user.role}
+          missingCount={missingCount}
+        />
+      )}
+    </AppShell>
   );
 }

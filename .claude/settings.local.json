@@ -41,7 +41,8 @@
       "Bash(git check-ignore *)",
       "Bash(git commit -m ' *)",
       "Bash(git commit --allow-empty -m ' *)",
-      "Bash(grep -n \"^model InitiativeRisk\\\\|^model CalendarItem\\\\|^model Initiative \\\\|^model Initiative{\\\\|^model Initiative$\\\\|^model Area\\\\|^enum\" \"/Users/joaquinuniversitario/Documents/CLAUDE/ERP PLAN ARQUI/prisma/schema.prisma\")"
+      "Bash(grep -n \"^model InitiativeRisk\\\\|^model CalendarItem\\\\|^model Initiative \\\\|^model Initiative{\\\\|^model Initiative$\\\\|^model Area\\\\|^enum\" \"/Users/joaquinuniversitario/Documents/CLAUDE/ERP PLAN ARQUI/prisma/schema.prisma\")",
+      "Bash(curl -s \"http://localhost:3000/_next/static/chunks/src_app_globals_162hn9o.css\")"
     ]
   }
 }

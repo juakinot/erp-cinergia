@@ -505,6 +505,50 @@ con el cambio de estado en la base.
 
 ---
 
+## D18 · Pasada de diseño visual: tokens del wireframe, no una paleta nueva
+
+**Decisión.** `src/app/globals.css` deja de ser el CSS por defecto de
+`create-next-app` y pasa a tener, literal, los custom properties de
+**Wireframes v3** (el artifact publicado en la fase de diseño) — mismos
+hex, mismos nombres de variable (`--brand-primary`, `--surface-panel`,
+`--alert-warn`, etc.), modo oscuro incluido vía
+`@media (prefers-color-scheme: dark)`. Se agregó `src/components/app-shell.tsx`
+(sidebar oscura + topbar, antes inexistente — cada página armaba su propio
+encabezado suelto sin nada en común) y `src/components/breadcrumb.tsx`
+(migas de pan con chip de código + badge de estado, reemplaza los enlaces
+"← volver" sueltos de las subpáginas de una iniciativa). Ambos se aplican
+en las 8 páginas autenticadas.
+
+**Por qué.** El código funcionaba pero no se parecía al wireframe — el
+motivo no era la paleta (los hex ya coincidían, se habían tomado del
+mismo documento desde el principio) sino la ausencia total de shell:
+sin sidebar ni topbar persistentes, cada pantalla se sentía como un
+formulario aislado en vez de un sistema. Se recuperó el wireframe
+publicado (vía `Artifact list` + `WebFetch`, no de memoria) para copiar
+los valores exactos en vez de aproximarlos.
+
+**Gotcha real encontrado en el camino.** El primer intento de la página
+de inicio usaba clases (`event-card`, `event-list`, `rail`, etc.) que
+nunca se definieron en `globals.css` — quedaron sin ningún estilo
+(`display: inline`, sin fondo) y el navegador las colapsó en texto
+corrido, sin ningún error de build ni de consola. Se detectó comparando
+`getComputedStyle()` del elemento real contra lo esperado, no leyendo el
+código — un className que no rompe nada al compilar puede seguir sin
+tener ninguna regla detrás.
+
+**Alcance de esta pasada.** Se tocó la estructura de cada página (shell,
+migas de pan, paneles, insignias de estado, tablas) y los botones
+principales de los formularios grandes — no cada micro-componente cliente
+(por ejemplo, `ActionButton`/`CancelButton` de Iniciativas o el editor de
+campos del acta siguen con clases de Tailwind en hex, que ya coinciden
+con los tokens en valor aunque no en abstracción). Arrastrar-y-soltar en
+el Kanban, iconografía real y las pantallas específicas por rol del
+wireframe (ejecutiva, Radar, Ideación — módulos que todavía no existen en
+el código) quedan fuera, consistente con D16: no construir interfaz para
+módulos que el sistema aún no tiene.
+
+---
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable

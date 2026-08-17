@@ -10,5 +10,5 @@ export default async function NewUserPage() {
   const supabase = await createClient();
   const { data: areas } = await supabase.from('areas').select('id, name').order('name');
 
-  return <InviteUserForm areas={areas ?? []} />;
+  return <InviteUserForm user={user} areas={areas ?? []} />;
 }

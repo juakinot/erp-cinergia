@@ -24,6 +24,7 @@ export default async function NewInitiativePage() {
 
   return (
     <NewInitiativeForm
+      user={user}
       areas={areas ?? []}
       candidates={candidates ?? []}
       lockedAreaId={user.role === 'AREA_DIRECTOR' ? user.areaId : null}

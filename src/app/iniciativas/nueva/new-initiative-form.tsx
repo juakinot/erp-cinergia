@@ -1,8 +1,10 @@
 'use client';
 
 import { useActionState, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { createInitiative, type ActionState } from '../actions';
+import { AppShell } from '@/components/app-shell';
+import { Breadcrumb } from '@/components/breadcrumb';
+import type { AppRole } from '@/lib/initiatives/types';
 
 interface Area {
   id: string;
@@ -32,10 +34,12 @@ const inputClass =
 const labelClass = 'text-sm font-medium text-[#003360]';
 
 export default function NewInitiativeForm({
+  user,
   areas,
   candidates,
   lockedAreaId,
 }: {
+  user: { fullName: string; role: AppRole; area?: { name: string } | null };
   areas: Area[];
   candidates: Candidate[];
   lockedAreaId: string | null;
@@ -50,17 +54,12 @@ export default function NewInitiativeForm({
   );
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#F4F7FB]">
-      <header className="border-b border-[#E8EEF5] bg-white px-6 py-4">
-        <Link href="/iniciativas" className="text-xs font-medium text-[#5A6B82] hover:text-[#003360]">
-          ← Iniciativas
-        </Link>
-      </header>
+    <AppShell user={user} active="/iniciativas">
+      <Breadcrumb backHref="/iniciativas" backLabel="Iniciativas" />
+      <div style={{ maxWidth: 640 }}>
+        <h1 style={{ margin: '0 0 20px', fontSize: 20, fontWeight: 700, color: 'var(--text-1)' }}>Nueva iniciativa</h1>
 
-      <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-8">
-        <h1 className="mb-6 text-lg font-bold text-[#003360]">Nueva iniciativa</h1>
-
-        <form action={formAction} className="flex flex-col gap-5 rounded-lg border border-[#E8EEF5] bg-white p-6">
+        <form action={formAction} className="panel flex flex-col gap-5">
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="areaId" className={labelClass}>
@@ -189,15 +188,11 @@ export default function NewInitiativeForm({
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded-md bg-[#0066CC] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0059B3] disabled:opacity-60"
-          >
+          <button type="submit" disabled={pending} className="btn primary" style={{ width: 'fit-content' }}>
             {pending ? 'Creando…' : 'Crear iniciativa'}
           </button>
         </form>
       </div>
-    </main>
+    </AppShell>
   );
 }

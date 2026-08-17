@@ -1,74 +1,98 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
-import { ROLE_LABELS } from '@/lib/roles';
-import { logout } from './actions';
+import { createClient } from '@/lib/supabase/server';
+import { STATUS_LABELS, TYPE_LABELS, type InitiativeStatus } from '@/lib/initiatives/types';
+import { AppShell } from '@/components/app-shell';
+
+const RISK_BADGE: Record<string, 'verde' | 'amarillo' | 'rojo'> = {
+  GREEN: 'verde',
+  AMBER: 'amarillo',
+  RED: 'rojo',
+};
 
 export default async function Home() {
   const user = await requireUser();
+  const supabase = await createClient();
+
+  const { data: initiatives } = await supabase
+    .from('initiatives')
+    .select('code, title, type, status, risk_level, created_at')
+    .order('created_at', { ascending: false });
+
+  const rows = initiatives ?? [];
+  const active = rows.filter((r) => r.status !== 'CLOSED' && r.status !== 'CANCELLED');
+  const atRisk = active.filter((r) => r.risk_level === 'AMBER' || r.risk_level === 'RED');
+  const pendingProposal = rows.filter((r) => r.status === 'PROPOSAL');
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#F4F7FB]">
-      <header className="flex items-center justify-between border-b border-[#E8EEF5] bg-white px-6 py-4">
-        <p className="font-mono text-xs tracking-[0.14em] text-[#5A6B82] uppercase">
-          CINERGIA · ERP
-        </p>
-        <form action={logout}>
-          <button
-            type="submit"
-            className="rounded-md border border-[#D3DDEA] px-3 py-1.5 text-xs font-medium text-[#5A6B82] hover:bg-[#F4F7FB]"
-          >
-            Cerrar sesión
-          </button>
-        </form>
-      </header>
-
-      <div className="flex flex-1 items-center justify-center px-4">
-        <div className="w-full max-w-md rounded-lg border border-[#E8EEF5] bg-white p-8 shadow-sm">
-          <h1 className="text-lg font-bold text-[#003360]">Bienvenido, {user.fullName}</h1>
-          <dl className="mt-6 flex flex-col gap-4 text-sm">
-            <div>
-              <dt className="font-mono text-[10px] tracking-[0.08em] text-[#B6C2D2] uppercase">
-                Rol
-              </dt>
-              <dd className="mt-0.5 font-medium text-[#003360]">
-                {ROLE_LABELS[user.role] ?? user.role}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-mono text-[10px] tracking-[0.08em] text-[#B6C2D2] uppercase">
-                Área
-              </dt>
-              <dd className="mt-0.5 font-medium text-[#003360]">
-                {user.area?.name ?? 'Todas (alcance cross-área)'}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-mono text-[10px] tracking-[0.08em] text-[#B6C2D2] uppercase">
-                Correo
-              </dt>
-              <dd className="mt-0.5 font-medium text-[#003360]">{user.email}</dd>
-            </div>
-          </dl>
-          <p className="mt-6 text-xs text-[#5A6B82]">
-            Sesión verificada de extremo a extremo: Supabase Auth → RLS → perfil de{' '}
-            <code className="rounded bg-[#E8EEF5] px-1 py-0.5">public.users</code>.
-          </p>
-          <Link
-            href="/iniciativas"
-            className="mt-6 block rounded-md bg-[#0066CC] px-4 py-2 text-center text-sm font-semibold text-white hover:bg-[#0059B3]"
-          >
-            Ver iniciativas →
-          </Link>
-          {user.role === 'PRESIDENT' && (
-            <Link
-              href="/usuarios"
-              className="mt-2 block rounded-md border border-[#D3DDEA] px-4 py-2 text-center text-sm font-semibold text-[#003360] hover:bg-[#F4F7FB]"
-            >
-              Gestionar usuarios →
-            </Link>
-          )}
+    <AppShell user={user} active="/">
+      <div className="kpi-row">
+        <div className="kpi">
+          <div className="k-label">Iniciativas activas</div>
+          <div className="k-value">{active.length}</div>
+        </div>
+        <div className={`kpi ${atRisk.length > 0 ? 'warn' : 'ok'}`}>
+          <div className="k-label">En riesgo</div>
+          <div className="k-value">{atRisk.length}</div>
+        </div>
+        <div className={`kpi ${pendingProposal.length > 0 ? 'warn' : ''}`}>
+          <div className="k-label">En propuesta</div>
+          <div className="k-value">{pendingProposal.length}</div>
         </div>
       </div>
-    </main>
+
+      <div className="panel">
+        <div className="panel-head">
+          <h2>Iniciativas recientes</h2>
+          <Link href="/iniciativas" className="link">
+            Ver todas →
+          </Link>
+        </div>
+
+        {rows.length === 0 ? (
+          <p className="empty">Sin iniciativas todavía.</p>
+        ) : (
+          <div className="event-list">
+            {rows.slice(0, 6).map((r) => (
+              <Link
+                key={r.code}
+                href={`/iniciativas/${r.code}`}
+                className="event-card"
+                style={{ textDecoration: 'none' }}
+              >
+                <span className={`rail ${r.risk_level === 'RED' ? 'crit' : r.risk_level === 'AMBER' ? 'warn' : ''}`} />
+                <span>
+                  <span className="code">{r.code}</span>
+                  <span className="title">{r.title}</span>
+                  <span className="sub">
+                    {TYPE_LABELS[r.type as keyof typeof TYPE_LABELS]} · {STATUS_LABELS[r.status as InitiativeStatus]}
+                  </span>
+                </span>
+                <span className={`badge b-${RISK_BADGE[r.risk_level] ?? 'neutral'}`}>
+                  {r.risk_level === 'GREEN' ? 'Verde' : r.risk_level === 'AMBER' ? 'Naranja' : 'Rojo'}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <p className="empty" style={{ fontStyle: 'normal' }}>
+          Sesión verificada de extremo a extremo: Supabase Auth → RLS → perfil de{' '}
+          <code
+            style={{
+              fontFamily: 'var(--font-mono)',
+              background: 'var(--surface-inset)',
+              padding: '1px 5px',
+              borderRadius: 3,
+            }}
+          >
+            public.users
+          </code>
+          .
+        </p>
+      </div>
+    </AppShell>
   );
 }

@@ -1,9 +1,10 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { canManageInitiative } from '@/lib/initiatives/permissions';
 import type { TaskPriority, TaskStatus } from '@/lib/tasks/types';
+import { AppShell } from '@/components/app-shell';
+import { Breadcrumb } from '@/components/breadcrumb';
 import { KanbanBoard } from './kanban-board';
 import { NewTaskForm } from './new-task-form';
 
@@ -81,40 +82,28 @@ export default async function TasksPage({ params }: { params: Promise<{ code: st
     .order('full_name');
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#F4F7FB]">
-      <header className="border-b border-[#E8EEF5] bg-white px-6 py-4">
-        <Link href={`/iniciativas/${row.code}`} className="text-xs font-medium text-[#5A6B82] hover:text-[#003360]">
-          ← {row.code}
-        </Link>
-      </header>
+    <AppShell user={user} active="/iniciativas">
+      <Breadcrumb backHref={`/iniciativas/${row.code}`} backLabel={row.code} code="Tareas" />
 
-      <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
-        <div className="mb-6 flex items-start justify-between gap-4">
-          <div>
-            <p className="font-mono text-xs font-semibold text-[#0066CC]">{row.code} · Tareas</p>
-            <h1 className="mt-1 text-xl font-bold text-[#003360]">{row.title}</h1>
-          </div>
-          {isManager && board && (
-            <NewTaskForm initiativeCode={row.code} areaMembers={areaMembers ?? []} />
-          )}
-        </div>
-
-        {!board ? (
-          <div className="rounded-lg border border-[#E8EEF5] bg-white p-6 text-sm text-[#5A6B82]">
-            El tablero de tareas se crea automáticamente al aprobar la iniciativa — todavía no existe
-            para esta.
-          </div>
-        ) : (
-          <KanbanBoard
-            initiativeCode={row.code}
-            columns={columns ?? []}
-            tasks={tasks as unknown as TaskWithExtras[]}
-            areaMembers={areaMembers ?? []}
-            isManager={isManager}
-            currentUserId={user.id}
-          />
-        )}
+      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text-1)' }}>{row.title}</h1>
+        {isManager && board && <NewTaskForm initiativeCode={row.code} areaMembers={areaMembers ?? []} />}
       </div>
-    </main>
+
+      {!board ? (
+        <div className="empty">
+          El tablero de tareas se crea automáticamente al aprobar la iniciativa — todavía no existe para esta.
+        </div>
+      ) : (
+        <KanbanBoard
+          initiativeCode={row.code}
+          columns={columns ?? []}
+          tasks={tasks as unknown as TaskWithExtras[]}
+          areaMembers={areaMembers ?? []}
+          isManager={isManager}
+          currentUserId={user.id}
+        />
+      )}
+    </AppShell>
   );
 }
