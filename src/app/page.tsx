@@ -1,14 +1,7 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
+import { ROLE_LABELS } from '@/lib/roles';
 import { logout } from './actions';
-
-const ROLE_LABELS: Record<string, string> = {
-  PRESIDENT: 'Presidente / Vicepresidente',
-  AREA_DIRECTOR: 'Director de Área',
-  REPORTS_DIRECTOR: 'Director de Reportes',
-  COORDINATOR: 'Coordinador',
-  MEMBER: 'Miembro',
-};
 
 export default async function Home() {
   const user = await requireUser();
@@ -66,6 +59,14 @@ export default async function Home() {
           >
             Ver iniciativas →
           </Link>
+          {user.role === 'PRESIDENT' && (
+            <Link
+              href="/usuarios"
+              className="mt-2 block rounded-md border border-[#D3DDEA] px-4 py-2 text-center text-sm font-semibold text-[#003360] hover:bg-[#F4F7FB]"
+            >
+              Gestionar usuarios →
+            </Link>
+          )}
         </div>
       </div>
     </main>

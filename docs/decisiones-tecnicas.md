@@ -198,6 +198,99 @@ migración nueva que agregue una tabla.
 
 ---
 
+## D11 · El mailer por defecto de Supabase no sirve para invitar de verdad
+
+**Decisión.** `inviteUserByEmail` (usado en `/usuarios/nuevo`) queda tal
+cual, sin lógica adicional de reintentos ni fallback — el problema no está
+en el código de la app.
+
+**Por qué.** Al verificar el flujo con datos de prueba aparecieron dos
+comportamientos separados, fáciles de confundir entre sí:
+
+1. Supabase valida que el dominio del correo tenga registros de correo
+   reales antes de aceptar la invitación. `nombre@test.cinergia.pe` (dominio
+   ficticio de los seeds) y `nombre@example.com` (dominio reservado por la
+   IANA, sin MX) fallan los dos con `"Email address ... is invalid"` — no es
+   un bug, es intencional. Un Gmail real pasa esa validación sin problema.
+2. Con un correo válido, la invitación choca con el límite de envíos del
+   mailer compartido que Supabase da por defecto en proyectos nuevos
+   (pensado solo para pruebas, unos pocos correos por hora): `"email rate
+   limit exceeded"`.
+
+Ambos casos se confirmaron sin dejar filas huérfanas — ni en `auth.users`
+ni en `public.users` — así que el rollback de `inviteUser()` (ver
+`src/app/usuarios/actions.ts`) funciona correctamente en ambos frentes.
+
+**Consecuencia práctica.** Antes de invitar usuarios reales hace falta
+configurar SMTP propio en Supabase (**Project Settings → Authentication →
+SMTP Settings**) usando Resend (cuenta ya creada, ver
+`docs/setup-infraestructura.md` §4) — host `smtp.resend.com`, usuario
+`resend`, contraseña el `RESEND_API_KEY`. Es un cambio de configuración de
+cuenta que le corresponde hacer a Presidencia desde el dashboard, no algo
+que se resuelva por código.
+
+---
+
+## D12 · `redirectTo` de la invitación debe apuntar a `/auth/confirm`, no a la página final
+
+**Decisión.** `inviteUserByEmail` usa
+`redirectTo: ${NEXT_PUBLIC_APP_URL}/auth/confirm?next=/completar-registro`
+— nunca la ruta final directamente.
+
+**Por qué.** La primera versión apuntaba `redirectTo` directo a
+`/completar-registro`. Con correo real (Gmail) y SMTP ya funcionando, el
+enlace del correo sí abría la app, pero rebotaba a `/login` sin sesión —
+sin que `/auth/confirm` recibiera ninguna petición (confirmado revisando
+los logs del servidor: cero hits a esa ruta).
+
+La causa: el enlace del correo apunta primero al endpoint de verificación
+de **Supabase** (`https://<proyecto>.supabase.co/auth/v1/verify?...`), que
+valida el token del lado de Supabase y recién *después* redirige a
+`redirectTo`. Si `redirectTo` es la página final, Supabase no tiene forma
+de dejar una sesión en una cookie httpOnly de nuestro dominio — el flujo
+implícito solo puede pasar los tokens como fragmento de URL
+(`#access_token=...`), que nunca llega al servidor. `/completar-registro`
+es un Server Component que exige sesión vía cookie; sin ella, el
+middleware redirige a `/login` antes de que cualquier JS del cliente
+tuviera oportunidad de leer el fragmento.
+
+Apuntar `redirectTo` a `/auth/confirm` en cambio sí funciona: esa ruta es
+la que recibe el `code`/`token_hash` de Supabase, hace el intercambio del
+lado del servidor (`verifyOtp` / `exchangeCodeForSession`), y es ahí —
+dentro del propio Route Handler, no en el cliente — donde sí se puede
+escribir la cookie de sesión httpOnly antes de redirigir a `next`.
+
+**Ese cambio solo no bastó.** Con `redirectTo` ya apuntando a
+`/auth/confirm`, el correo real seguía llegando a esa ruta sin ningún
+`token_hash` ni `code` en la query string — porque la plantilla de correo
+"Invite user" de Supabase, por defecto, usa `{{ .ConfirmationURL }}`, que
+apunta primero al endpoint hospedado de Supabase
+(`https://<proyecto>.supabase.co/auth/v1/verify?...`). Ese endpoint valida
+el token y entrega la sesión como **fragmento de URL**
+(`#access_token=...`, flujo implícito) — algo que un Route Handler nunca
+puede leer, porque el fragmento no viaja al servidor. Hubo que editar la
+plantilla en el dashboard (**Authentication → Emails → Templates → Invite
+user**) para que el enlace apunte directo a nuestra ruta con el token como
+parámetro real de servidor:
+
+```
+{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/completar-registro
+```
+
+**Consecuencia práctica.** Los dos cambios son necesarios juntos: (1)
+`redirectTo` en `inviteUserByEmail` apuntando a `/auth/confirm?next=...`,
+y (2) la plantilla de correo usando `{{ .TokenHash }}` en vez de
+`{{ .ConfirmationURL }}`. Aplica a cualquier plantilla de Supabase Auth que
+se llegue a usar (recuperar contraseña, cambio de correo, etc.) — cada una
+necesita el mismo tratamiento en su propia plantilla. Verificado de
+extremo a extremo el 2026-08-17 con un correo real (Gmail, vía Resend):
+invitación → correo → clic → `/auth/confirm` → `/completar-registro` →
+contraseña definida → login → rol y área correctos según `public.users`.
+No habría aparecido revisando el código en aislamiento ni con los usuarios
+de prueba (que nunca habían recibido un correo real hasta este punto).
+
+---
+
 ## Pendiente de definir
 
 - **Estructura de `acta_templates.structure_schema`** para `EVENT` y `PROJECT`.

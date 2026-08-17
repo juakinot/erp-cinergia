@@ -18,7 +18,27 @@
       "Bash(npm install *)",
       "Bash(npm run *)",
       "Bash(npx tsc *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(brew install *)",
+      "Bash(gh auth *)",
+      "Bash(git push *)",
+      "Bash(gh repo *)",
+      "Bash(node scripts/run-sql.mjs prisma/sql/01_rls_policies.sql)",
+      "Bash(node scripts/run-sql.mjs prisma/sql/02_report_views.sql)",
+      "Bash(node scripts/verify-setup.mjs)",
+      "Bash(git rm *)",
+      "Bash(npx eslint *)",
+      "Bash(kill -9 8302 8286)",
+      "Bash(kill -9 8436 8420)",
+      "Bash(node scripts/run-sql.mjs prisma/migrations/20260816213000_add_escalation_request/migration.sql)",
+      "Bash(npx @next/codemod@canary middleware-to-proxy .)",
+      "Bash(echo \"EXIT CODE: $?\")",
+      "Bash(npx tsx *)",
+      "Bash(cat)",
+      "Bash(node scripts/run-sql.mjs prisma/migrations/20260816220000_uuid_column_defaults/migration.sql)",
+      "Bash(node scripts/run-sql.mjs prisma/migrations/20260816221500_updated_at_trigger/migration.sql)",
+      "Bash(node ./scripts/_tmp-check-users.mjs)",
+      "Bash(git check-ignore *)"
     ]
   }
 }
