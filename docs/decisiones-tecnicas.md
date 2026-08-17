@@ -360,6 +360,40 @@ parezca el flujo.
 
 ---
 
+## D15 · Reintentar una invitación con el mismo correo
+
+**Decisión.** `inviteUser()` distingue dos casos al invitar: si
+`generateLink({ type: 'invite' })` devuelve `error.code === 'email_exists'`,
+se cae a `reissueLink()`, que usa `generateLink({ type: 'recovery' })` en
+su lugar — funciona para una cuenta que ya existe en `auth.users`, y lleva
+al mismo `/completar-registro`. Además, el `insert` de `public.users` pasó
+a `upsert` en los dos caminos, porque una cuenta ya invitada antes puede
+tener perfil pero no contraseña.
+
+**Por qué.** Fabrizzio (el primer director real invitado, ver D14) quedó
+con su cuenta de Auth confirmada por el bug de la precarga de WhatsApp,
+pero sin contraseña. Al corregir D14 e intentar invitarlo de nuevo con el
+mismo correo, `generateLink({ type: 'invite' })` rechazó con
+`email_exists` — ese tipo solo sirve para convertir un correo *no
+confirmado* en uno confirmado; una vez confirmado (aunque sea por
+accidente, sin contraseña), ya no aplica. `type: 'recovery'` sí funciona
+para cualquier cuenta existente, confirmada o no.
+
+Al arreglar esto se encontró un problema relacionado en el propio código:
+el camino original hacía `insert` (no `upsert`) en `public.users`, y si
+fallaba por PK duplicada **borraba la cuenta de Auth entera** como
+"rollback" — una cuenta ya existente (no creada en esa misma llamada)
+podía desaparecer por un choque de escritura, no por ser inválida. Se
+verificó en pruebas locales: ese rollback sí borró una cuenta de prueba
+que no debía borrarse.
+
+**Consecuencia práctica.** Ya no se borra ninguna cuenta de Auth como
+efecto secundario de un error de perfil — si `upsert` falla (por ejemplo,
+`area_id` inválido), se reporta el error y la cuenta de Auth queda intacta
+para que Presidencia reintente sin haber perdido nada.
+
+---
+
 ## Pendiente de definir
 
 - **Estructura de `acta_templates.structure_schema`** para `EVENT` y `PROJECT`.
