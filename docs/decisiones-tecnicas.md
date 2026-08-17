@@ -321,6 +321,45 @@ la app.
 
 ---
 
+## D14 · La verificación del token no puede pasar en un GET simple
+
+**Decisión.** `/auth/confirm` dejó de ser un Route Handler que verifica el
+token en el `GET` (`route.ts`). Ahora es una **página** (`page.tsx`) que
+solo muestra un botón "Continuar"; la verificación real
+(`verifyOtp`/`exchangeCodeForSession`) vive en un Server Action
+(`confirmInvite`, en `actions.ts`) que solo se dispara con el `POST` que
+genera un clic real en ese botón.
+
+**Por qué.** Primer caso real de invitación a una persona fuera de este
+equipo: Presidencia generó el enlace (ver D13) y lo mandó por WhatsApp. El
+director nunca pudo completar el registro — le aparecía `/login`, enlace
+inválido. La causa: WhatsApp **precarga la URL del lado del servidor**
+apenas se envía el mensaje, para armar la tarjeta de vista previa (título,
+imagen). Esa precarga es un `GET` idéntico a el que haría el navegador del
+director — y como `/auth/confirm` verificaba el token en cualquier `GET`,
+la precarga de WhatsApp gastó el token de un solo uso antes de que el
+director llegara a tocar el enlace. Confirmado en `auth.users`: el
+usuario tenía `last_sign_in_at` poblado — alguien (o algo) ya había
+verificado el OTP — pero el director nunca vio `/completar-registro`.
+
+Este es el mismo tipo de problema, en otro punto del sistema, que D12 ya
+había encontrado con los rastreadores de Gmail — aquí el disparador es
+WhatsApp en vez de Gmail, pero la causa raíz es la misma: **cualquier**
+cliente puede hacer un `GET` pasivo sin que sea la persona. La solución
+correcta no es detectar user-agents de rastreadores (frágil, hay
+demasiados) sino no verificar nada hasta que haya una acción explícita del
+lado del cliente — un `POST` real. Se probó con `curl` simulando 3 cargas
+pasivas seguidas del mismo enlace (como haría una precarga) y el token
+siguió vivo hasta el clic real en el navegador.
+
+**Consecuencia práctica.** Cualquier ruta que verifique un token de un
+solo uso — invitaciones, recuperar contraseña, cambio de correo — tiene
+que seguir este mismo patrón: página con botón, Server Action que verifica
+en el submit. Nunca verificar en un `GET`, sin importar qué tan simple
+parezca el flujo.
+
+---
+
 ## Pendiente de definir
 
 - **Estructura de `acta_templates.structure_schema`** para `EVENT` y `PROJECT`.
