@@ -549,6 +549,75 @@ módulos que el sistema aún no tiene.
 
 ---
 
+## D19 · El botón de confirmar invitación necesita deshabilitarse solo
+
+**Decisión.** `src/app/auth/confirm/confirm-button.tsx` usa
+`useFormStatus()` de `react-dom` para deshabilitarse y mostrar
+"Confirmando…" mientras el Server Action `confirmInvite` corre — sin
+convertir toda la página de confirmación a Client Component (el resto
+sigue siendo un Server Component normal; `useFormStatus` funciona dentro
+de cualquier `<form action={serverAction}>` sin importar dónde vive el
+form en el árbol).
+
+**Por qué.** Un director real completó su registro con éxito — quedó
+`last_sign_in_at` real en la base, contraseña guardada — pero terminó
+viendo la pantalla de login, no la de "bienvenido". El botón "Continuar"
+(D14) no se desactivaba tras el primer clic; un doble clic/doble tap
+mandaba dos POST casi simultáneos al mismo Server Action: el primero
+gastaba el token de un solo uso con éxito y redirigía a
+`/completar-registro`, el segundo llegaba justo después, encontraba el
+token ya consumido, y su propio `redirect('/login?error=enlace_invalido')`
+ganaba la carrera — devolviendo a la persona al login inmediatamente
+después de haber terminado. Se reprodujo el patrón revisando
+`confirmed_at`/`last_sign_in_at` en `auth.users` (casi idénticos, a
+milisegundos de diferencia) antes de tocar el código.
+
+**Consecuencia práctica.** Mismo riesgo aplica a cualquier botón que
+dispare un Server Action de un solo uso (tokens, pagos, transiciones no
+idempotentes) — deshabilitar en el primer clic con `useFormStatus()` (o
+el `pending` de `useTransition` en los botones que ya usan ese patrón)
+no es opcional, es la defensa real contra doble-tap en móvil.
+
+---
+
+## D20 · Módulo de Logística: checklist sin autoservicio de terceros
+
+**Decisión.** `/iniciativas/[code]/logistica` cubre lo que
+`validateReady` exige para Eventos: crear el checklist, agregar ítems
+(categoría, descripción, obligatorio, requiere evidencia), y marcar cada
+uno `PENDING → DONE` o `PENDING → NOT_APPLICABLE` (con motivo
+obligatorio). A diferencia de Tareas (D16), la escritura queda
+completamente reservada a quien gestiona la iniciativa — sin
+autoservicio de un tercero — porque `LogisticsItem` no tiene un campo de
+responsable asignado de antemano, solo `done_by_user_id` (se llena recién
+al completar). Inventar un campo de asignación nuevo solo para calcar el
+patrón de Tareas habría sido construir por simetría, no por necesidad.
+
+**Bug real encontrado y corregido de paso.** `validateReady` solo
+aceptaba `status === 'DONE'` como resuelto — un ítem obligatorio marcado
+`NOT_APPLICABLE` (que existe justo para "esto no aplica a este evento en
+particular", con su propio campo `notApplicableReason` para justificarlo)
+seguía bloqueando el avance igual que uno sin tocar. Se cambió a aceptar
+cualquier cosa que no sea `PENDING`. Se encontró leyendo el código antes
+de construir la UI encima, no en producción — mismo patrón que el hueco
+de RLS de D16.
+
+**Hueco de RLS cerrado de paso.** `logistics_checklists_all` y
+`logistics_items_all` tenían el mismo problema que Kanban antes de D16:
+una sola política `for all` gateada solo por `can_view_initiative` —
+cualquiera que pudiera *ver* la iniciativa podía escribir. Se separó
+lectura de escritura, escritura ahora exige `can_manage_initiative`.
+Verificado con una sesión real de Miembro: un `insert` directo a
+`logistics_items`, saltándose la UI, es rechazado por RLS.
+
+**Consecuencia práctica.** El checklist no se auto-genera con las 6
+categorías sugeridas del comentario del esquema (permisos, materiales,
+difusión, catering, seguridad, tecnología) — se ofrecen como sugerencias
+en un `<datalist>`, pero cada ítem se agrega a mano. Generar un checklist
+estándar por defecto queda como posible mejora futura, no bloqueante.
+
+---
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable

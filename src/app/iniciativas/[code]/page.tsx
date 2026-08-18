@@ -98,6 +98,14 @@ export default async function InitiativeDetailPage({ params }: { params: Promise
               <Link href={`/iniciativas/${row.code}/acta`} style={{ fontSize: 12, fontWeight: 600, color: 'var(--brand-primary)' }}>
                 Ver acta →
               </Link>
+              {row.type === 'EVENT' && (
+                <Link
+                  href={`/iniciativas/${row.code}/logistica`}
+                  style={{ fontSize: 12, fontWeight: 600, color: 'var(--brand-primary)' }}
+                >
+                  Ver checklist logístico →
+                </Link>
+              )}
             </div>
           )}
         </div>

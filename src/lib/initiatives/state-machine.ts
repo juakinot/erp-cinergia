@@ -129,7 +129,11 @@ async function validateReady(supabase: SupabaseClient, initiative: InitiativeRow
       .eq('checklist_id', checklist.id)
       .eq('required', true);
 
-    const pending = (items ?? []).filter((i) => i.status !== 'DONE').length;
+    // "No aplica" también resuelve el ítem — existe justo para los casos
+    // donde el checklist estándar trae algo que este evento en particular
+    // no necesita (ver notApplicableReason en el esquema). Solo PENDING
+    // cuenta como sin resolver.
+    const pending = (items ?? []).filter((i) => i.status === 'PENDING').length;
     if (pending > 0) {
       return { ok: false, reason: `Faltan ${pending} ítem(s) obligatorios del checklist logístico.` };
     }

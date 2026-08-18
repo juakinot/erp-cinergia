@@ -328,16 +328,34 @@ create policy calendar_items_write on public.calendar_items for all using (
   or (initiative_id is not null and public.can_manage_initiative(initiative_id))
 );
 
+-- Mismo criterio que D16 (Tareas/Kanban): lectura para quien ve la
+-- iniciativa, escritura solo para quien la gestiona. LogisticsItem no
+-- tiene un campo de responsable propio (solo `done_by_user_id`, que se
+-- llena al completar, no antes) — a diferencia de las tareas, no hay
+-- autoservicio de un tercero aquí; marcar un ítem es autoridad de gestión.
 drop policy if exists logistics_checklists_all on public.logistics_checklists;
-create policy logistics_checklists_all on public.logistics_checklists for all using (
+drop policy if exists logistics_checklists_select on public.logistics_checklists;
+create policy logistics_checklists_select on public.logistics_checklists for select using (
   public.can_view_initiative(initiative_id)
+);
+drop policy if exists logistics_checklists_write on public.logistics_checklists;
+create policy logistics_checklists_write on public.logistics_checklists for all using (
+  public.can_manage_initiative(initiative_id)
 );
 
 drop policy if exists logistics_items_all on public.logistics_items;
-create policy logistics_items_all on public.logistics_items for all using (
+drop policy if exists logistics_items_select on public.logistics_items;
+create policy logistics_items_select on public.logistics_items for select using (
   exists (
     select 1 from public.logistics_checklists c
     where c.id = checklist_id and public.can_view_initiative(c.initiative_id)
+  )
+);
+drop policy if exists logistics_items_write on public.logistics_items;
+create policy logistics_items_write on public.logistics_items for all using (
+  exists (
+    select 1 from public.logistics_checklists c
+    where c.id = checklist_id and public.can_manage_initiative(c.initiative_id)
   )
 );
 
