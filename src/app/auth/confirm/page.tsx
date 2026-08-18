@@ -1,4 +1,5 @@
 import { confirmInvite } from './actions';
+import { ConfirmButton } from './confirm-button';
 
 /**
  * Punto de entrada único para todo enlace de correo/invitación de Supabase
@@ -36,12 +37,7 @@ export default async function ConfirmPage({
               <input type="hidden" name="type" value={type} />
               <input type="hidden" name="code" value={code} />
               <input type="hidden" name="next" value={next} />
-              <button
-                type="submit"
-                className="w-full rounded-md bg-[#0066CC] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0059B3]"
-              >
-                Continuar
-              </button>
+              <ConfirmButton />
             </form>
           </>
         ) : (
