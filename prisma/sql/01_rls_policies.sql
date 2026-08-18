@@ -428,9 +428,36 @@ create policy survey_responses_select on public.survey_responses for select usin
   respondent_user_id = auth.uid()
 );
 
+-- La respuesta puede ser anónima (respondent_user_id null), así que la
+-- autoría no se puede comprobar por dueño de fila. En su lugar, exige que
+-- la encuesta siga ACTIVE y visible: conocer el response_id (uuid al azar,
+-- devuelto solo a quien acaba de insertar esa fila) sirve como comprobante
+-- para completar la respuesta en la misma operación.
+--
+-- Necesita ser security definer: una subconsulta normal sobre
+-- survey_responses queda sujeta a survey_responses_select, que nunca deja
+-- ver una fila anónima (respondent_user_id null) ni siquiera a quien la
+-- creó — por eso can_view_initiative() solo no alcanza acá.
+create or replace function public.can_answer_survey_response(response_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select exists (
+    select 1 from public.survey_responses r
+    join public.surveys s on s.id = r.survey_id
+    where r.id = response_id
+      and s.status = 'ACTIVE'
+      and public.can_view_initiative(s.initiative_id)
+      and (r.respondent_user_id = auth.uid() or r.respondent_user_id is null)
+  )
+$$;
+
 drop policy if exists survey_answers_insert on public.survey_answers;
 create policy survey_answers_insert on public.survey_answers for insert with check (
-  exists (select 1 from public.survey_responses r where r.id = response_id and r.respondent_user_id = auth.uid())
+  public.can_answer_survey_response(response_id)
 );
 
 drop policy if exists survey_answers_select on public.survey_answers;

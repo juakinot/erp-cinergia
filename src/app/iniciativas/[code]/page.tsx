@@ -106,6 +106,14 @@ export default async function InitiativeDetailPage({ params }: { params: Promise
                   Ver checklist logístico →
                 </Link>
               )}
+              {row.type === 'EVENT' && (
+                <Link
+                  href={`/iniciativas/${row.code}/encuestas`}
+                  style={{ fontSize: 12, fontWeight: 600, color: 'var(--brand-primary)' }}
+                >
+                  Ver encuesta →
+                </Link>
+              )}
             </div>
           )}
         </div>

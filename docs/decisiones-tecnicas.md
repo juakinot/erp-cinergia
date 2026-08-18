@@ -618,6 +618,68 @@ estándar por defecto queda como posible mejora futura, no bloqueante.
 
 ---
 
+## D21 · Módulo de Encuestas: dos bugs de RLS reales encontrados probando el insert anónimo
+
+**Decisión.** `/iniciativas/[code]/encuestas` cubre el ciclo completo que
+`validateClosed` exige para Eventos: crear la encuesta (`DRAFT`), armar
+las preguntas (5 tipos: escala 1-5, opción única, opción múltiple, texto
+abierto, número), activarla (`DRAFT → ACTIVE`, requiere al menos una
+pregunta), recibir respuestas, y cerrarla (`ACTIVE → CLOSED`, lo que
+desbloquea el cierre del Evento). A diferencia de Logística/Tareas, quien
+gestiona la encuesta (crear/editar preguntas/activar/cerrar) y quien
+responde son roles independientes que conviven en la misma pantalla: un
+Coordinador puede cerrar la encuesta y también contestarla él mismo.
+
+**Deduplicación sin romper el anonimato.** Cada respuesta guarda un
+`respondent_hash = HMAC-SHA256(SUPABASE_SERVICE_ROLE_KEY, survey_id:user_id)`,
+calculado en el Server Action (nunca en el cliente) y usado solo por la
+restricción `unique(survey_id, respondent_hash)` para bloquear un segundo
+envío del mismo usuario — nunca para identificarlo. Se eligió HMAC con
+clave de servidor en vez de un hash plano de `survey_id:user_id` porque
+un hash plano sería reversible por fuerza bruta (probar cada `user_id`
+conocido contra los hashes guardados), lo que de-anonimizaría trivialmente
+las respuestas para cualquiera con acceso a la tabla.
+
+**Bug real #1 — `.select()` después del insert rompe encuestas anónimas.**
+`submitResponse` pedía `.select('id').single()` tras insertar en
+`survey_responses` para conseguir el id y encadenar el insert de
+`survey_answers`. En Postgres, un `INSERT ... RETURNING` bajo RLS exige
+que la fila resultante sea visible según la política de `SELECT`, no solo
+que pase el `WITH CHECK` del insert — y `survey_responses_select` exige
+`respondent_user_id = auth.uid()`, que nunca es cierto cuando la encuesta
+es anónima (`respondent_user_id` se guarda `null` a propósito). El
+insert fallaba con "violates row-level security policy" incluso siendo
+válido. Encontrado probando el flujo real en el navegador (no por lectura
+de código). Corregido generando el `id` de la respuesta en el servidor
+(`randomUUID()`) antes del insert y reutilizándolo directamente, sin
+pedir `RETURNING`.
+
+**Bug real #2 — la política de `survey_answers_insert` original era
+imposible de cumplir en encuestas anónimas.** La política heredada del
+diseño original exigía `r.respondent_user_id = auth.uid()` contra
+`survey_responses`, lo mismo que el bug #1 pero un nivel más adentro:
+ninguna subconsulta plana dentro de una política RLS tiene privilegios
+elevados, así que esa subconsulta sobre `survey_responses` quedaba sujeta
+a `survey_responses_select` — que oculta cualquier fila anónima incluso a
+quien la creó. Es decir, era estructuralmente imposible insertar
+respuestas a una encuesta anónima (el modo por defecto). Se corrigió
+igual que `can_view_initiative`/`can_manage_initiative`: una función
+`can_answer_survey_response(response_id)` `security definer`, que sí
+bypassa RLS al consultar `survey_responses`/`surveys` internamente, y que
+exige encuesta `ACTIVE` + `can_view_initiative` + (dueño de la respuesta
+o respuesta anónima). Ambos bugs solo aparecieron probando un envío real
+end-to-end — el análisis estático de las políticas (correcto en su forma)
+no los hubiera detectado sin ejecutar el insert real bajo RLS.
+
+**RLS verificado con sesión real de Miembro** (no gestor): bloqueado al
+intentar insertar una pregunta, bloqueado al intentar reabrir una
+encuesta cerrada (`update` afecta 0 filas), y no puede leer ninguna fila
+de `survey_responses` ni `survey_answers` ajena — los resultados
+agregados quedan reservados al futuro dashboard de Reportes, tal como
+indica el comentario original del esquema.
+
+---
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable
