@@ -680,6 +680,43 @@ indica el comentario original del esquema.
 
 ---
 
+## D22 · Módulo de Radar operativo: prevalidar no es aprobar, encontrado probando con 3 roles reales
+
+**Decisión.** `/iniciativas/[code]/radar` implementa `InitiativeInput` completo:
+proponer (cualquiera con acceso a la iniciativa) → prevalidar/reclasificar
+(Coordinador o superior, `PROPOSED → IN_REVIEW`) → aprobar / rechazar /
+convertir en Tarea·Riesgo·Ítem logístico·Observación (Director de Área o
+Presidencia). Cada transición queda registrada en
+`initiative_input_transitions` y se muestra como línea de tiempo en el
+detalle, igual que el wireframe de referencia.
+
+**Bug real encontrado probando con sesiones de Coordinador, Miembro y
+Director de Área reales** (no por lectura de código): usé
+`canManageInitiative` — el mismo helper de Tareas/Actas/Logística/
+Encuestas — para gatear aprobar/rechazar/convertir. Esa función incluye
+al Coordinador de la iniciativa, pero el esquema es explícito en que
+**"Conversión: solo Director de Área o Presidencia"**, y el comentario de
+la política RLS lo remarca: *"la distinción entre prevalidar (Coordinador)
+y aprobar (Director de Área) se aplica en la capa de servicio"* — es
+decir, RLS deliberadamente no la impone porque es autoridad de rol dentro
+de quienes ya pueden escribir la fila, no un límite de acceso a datos. Al
+probar como Coordinador de verdad, el botón "Aprobar" aparecía y
+funcionaba — typecheck y lint no lo detectan porque `canManageInitiative`
+es válido en todos los demás módulos, es la elección semántica la que
+estaba mal para este caso concreto. Se corrigió con `canApproveInput`
+(solo `PRESIDENT` o `AREA_DIRECTOR` de la misma área), replicado en el
+Server Action y en la página de detalle para no mostrar botones que
+fallarían.
+
+**Verificado end-to-end con 3 cuentas de prueba** (Miembro, Coordinador,
+Director de Área) sobre una iniciativa real: proponer → prevalidar (con
+reclasificación de tipo) → convertir en Tarea (verificado que la fila
+`tasks` nace con `source_input_id` enlazado, prioridad y
+`requires_approval` heredados) → convertir en Riesgo en otro input
+(verificado `initiative_risks` con `likelihood`/`impact`) → rechazar un
+tercero. RLS confirmado con sesión real de Miembro: un `update` directo a
+`initiative_inputs` saltándose la UI afecta 0 filas.
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable
