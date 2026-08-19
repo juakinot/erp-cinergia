@@ -876,6 +876,25 @@ vuelve al autor.
 
 ---
 
+## D27 · Miembros: directorio de solo lectura, distinto de /usuarios
+
+**Decisión.** `/miembros` es un directorio de equipo de solo lectura,
+disponible para todos los roles — a diferencia de `/usuarios`, que sigue
+siendo exclusivo de Presidencia porque ahí vive la acción administrativa
+(invitar cuentas nuevas). No es una tabla nueva ni una política de RLS
+nueva: reutiliza exactamente `users_select`, ya verificada varias veces
+en este mismo día de trabajo (Radar, Aprobaciones, Propuestas) — un
+Coordinador o Miembro ve solo su área, Director de Área lo mismo,
+Presidencia y Director de Reportes ven las 3. La única pieza nueva es
+agrupar por área en la UI en vez de mostrar todo en una tabla plana.
+
+**Verificado con una cuenta de Coordinador real**: solo ve a los 2
+miembros de su propia área (agrupados bajo "Eventos"), nada de las
+otras 2 áreas — confirma que la reutilización de RLS funciona igual sin
+tener que re-probar el boundary desde cero.
+
+---
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable
