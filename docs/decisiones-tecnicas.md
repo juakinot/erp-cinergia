@@ -845,6 +845,37 @@ observación". RLS confirmado con un insert directo por API como Miembro
 
 ---
 
+## D26 · Propuestas de mejora: canal exclusivo de Director de Reportes
+
+**Decisión.** `/propuestas` implementa `ImprovementProposal` completo:
+crear (solo Director de Reportes — `improvement_proposals_insert` en RLS
+lo exige, no es un canal abierto a cualquiera), decidir
+(Aprobar/Rechazar/Marcar como convertida en acción). El enrutamiento de
+quién decide ya vive en el esquema y en RLS, no se inventó nada nuevo:
+si `affected_area_ids` tiene una sola área, decide el Director de esa
+área; si tiene varias, decide solo Presidencia
+(`improvement_proposals_update`: el Director solo pasa el check cuando
+`array_length(affected_area_ids, 1) = 1`).
+
+**El nombre del autor puede no mostrarse — y es RLS correcto, no un
+bug.** Cuando un Director de Área ve una propuesta, el `author:
+author_user_id(full_name)` embebido devuelve null si el autor (Director
+de Reportes) no cae dentro de lo que `users_select` le permite leer a
+ese Director — que solo ve perfiles de su propia área. El Director de
+Reportes no pertenece a ninguna área (`area_id` null), así que su nombre
+no es legible para un Director de Área cualquiera. Se verificó esto
+leyendo la política antes de investigarlo como si fuera un fallo del
+join; el fallback `—` de `personName()` ya lo cubre con naturalidad.
+
+**Verificado end-to-end con 3 roles reales**: Director de Reportes crea
+una propuesta de una sola área (la ve y decide el Director de esa área,
+no Presidencia) y una de dos áreas (el Director la ve pero sin botones
+de decisión; Presidencia sí puede decidirla). Notificación al crear va
+al decisor correcto según el conteo de áreas; notificación al decidir
+vuelve al autor.
+
+---
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable

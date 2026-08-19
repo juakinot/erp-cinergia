@@ -17,6 +17,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Iniciativas', href: '/iniciativas' },
   { label: 'Aprobaciones', href: '/aprobaciones', roles: ['PRESIDENT', 'AREA_DIRECTOR'] },
   { label: 'Semáforo', href: '/semaforo', roles: ['PRESIDENT', 'AREA_DIRECTOR', 'REPORTS_DIRECTOR', 'COORDINATOR'] },
+  { label: 'Propuestas de mejora', href: '/propuestas', roles: ['PRESIDENT', 'AREA_DIRECTOR', 'REPORTS_DIRECTOR'] },
   { label: 'Usuarios', href: '/usuarios', roles: ['PRESIDENT'] },
 ];
 
