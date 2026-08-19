@@ -895,6 +895,45 @@ tener que re-probar el boundary desde cero.
 
 ---
 
+## D28 · Calendario general: alcance a eventos sin iniciativa, y un bug real de zona horaria
+
+**Decisión.** `/calendario` cubre el alcance "general" de `CalendarItem`
+(`initiative_id` null): eventos compartidos no atados a una iniciativa
+específica — reuniones, hitos institucionales. El calendario *por*
+iniciativa (visible dentro de cada una, con `PRIVATE` habilitado) queda
+fuera de esta pasada: el wireframe nunca llegó a dibujar esa vista
+(`.cal-week`/`.cal-day` son CSS heredado de v2 sin usar en ningún cuerpo
+de v3 — mismo criterio que D24 aplicó al semáforo: no inventar un grid
+de mes sin spec real detrás). Se construyó una agenda cronológica
+(Próximos/Pasados) en su lugar, consistente con lo que sí hay evidencia
+de haber diseñado.
+
+**`visibility: PRIVATE` no se ofrece para eventos generales, a
+propósito.** `calendar_items_select` solo admite `PRIVATE` cuando
+`initiative_id` no es null; un evento general marcado `PRIVATE` sería
+invisible incluso para quien lo creó. Se excluyó del `<select>` del
+formulario en vez de dejar una opción que rompería en silencio.
+
+**Bug real de zona horaria, encontrado probando, no por lectura de
+código.** El input `datetime-local` entrega `"2026-09-01T10:00"` sin
+offset. Insertado tal cual, Postgres lo toma como UTC literal — un
+evento cargado como "10:00 a.m." en Lima se guardaba como 10:00 UTC (=
+5:00 a.m. en Lima) y se mostraba de vuelta corrido 5 horas. Es el primer
+campo de esta app con granularidad de hora, no solo fecha — por eso el
+bug no existía antes en `plannedDate` y similares (`type="date"` no
+tiene esta ambigüedad). Corregido fijando el offset `-05:00` (Lima, sin
+horario de verano) tanto al guardar (`toLimaInstant()` en el Server
+Action) como al mostrar (`timeZone: 'America/Lima'` explícito en
+`Intl.DateTimeFormat`, en vez de dejar que tome la zona del proceso que
+corre el servidor).
+
+**Verificado con cuentas reales**: crear evento, ver la hora correcta
+tras el fix (antes/después comparado directamente), eliminar el propio
+evento, y RLS confirmado — un Miembro no puede borrar un evento creado
+por otra persona (`0` filas afectadas por API directa).
+
+---
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable
