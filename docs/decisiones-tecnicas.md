@@ -778,6 +778,36 @@ patrón que `/usuarios`, ese rol nunca aprueba nada ahí).
 
 ---
 
+## D24 · Semáforo de iniciativas: color en vivo, no el campo `risk_level`
+
+**Decisión.** `/semaforo` lista las iniciativas activas (`APPROVED` en
+adelante, hasta `POST_EVENT`) coloreadas por señales calculadas al vuelo:
+rojo si tiene tareas vencidas (`due_date < now()` y no completada/cancelada),
+naranja si tiene inputs del Radar sin atender (`PROPOSED`/`IN_REVIEW`),
+verde si ninguna. Antes de construir esto se verificó que el campo
+`risk_level` de `initiatives` (por el que ya pasaba `/iniciativas` y el
+dashboard de Inicio) nace en `GREEN` por defecto y ningún Server Action lo
+actualiza — es un campo dormido. Reflejarlo tal cual en una pantalla nueva
+habría sido construir UI sobre un stub; en su lugar el semáforo calcula la
+señal real en cada carga y lo deja explícito en el copy de la página, sin
+tocar ni fingir que `risk_level` significa algo hoy.
+
+**Bug real de CSS encontrado visualmente, no por code review.** El
+modificador de color (`.rail.crit` / `.rail.warn`) va en el elemento
+`.rail` interno, no en `.event-card` — approximation tomada por error de
+otra variante vista en el wireframe. El resultado no daba ningún error:
+las tres tarjetas de prueba (roja, naranja, verde) se veían todas del
+mismo verde por defecto. Se encontró comparando el screenshot esperado
+contra el real, mismo patrón que el bug de `.event-card`/`.event-list`
+de D18. Corregido replicando el patrón ya correcto de `src/app/page.tsx`
+(`<span className={\`rail ${...}\`} />`, no en el contenedor).
+
+**Verificado con 3 iniciativas de prueba** (una con tarea vencida, una
+con input de Radar pendiente, una limpia): colores y conteos correctos,
+orden rojo→naranja→verde.
+
+---
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable
