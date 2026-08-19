@@ -2,9 +2,6 @@
 
 import { useActionState, useMemo, useState } from 'react';
 import { createInitiative, type ActionState } from '../actions';
-import { AppShell } from '@/components/app-shell';
-import { Breadcrumb } from '@/components/breadcrumb';
-import type { AppRole } from '@/lib/initiatives/types';
 
 interface Area {
   id: string;
@@ -34,12 +31,10 @@ const inputClass =
 const labelClass = 'text-sm font-medium text-[#003360]';
 
 export default function NewInitiativeForm({
-  user,
   areas,
   candidates,
   lockedAreaId,
 }: {
-  user: { fullName: string; role: AppRole; area?: { name: string } | null };
   areas: Area[];
   candidates: Candidate[];
   lockedAreaId: string | null;
@@ -54,12 +49,10 @@ export default function NewInitiativeForm({
   );
 
   return (
-    <AppShell user={user} active="/iniciativas">
-      <Breadcrumb backHref="/iniciativas" backLabel="Iniciativas" />
-      <div style={{ maxWidth: 640 }}>
-        <h1 style={{ margin: '0 0 20px', fontSize: 20, fontWeight: 700, color: 'var(--text-1)' }}>Nueva iniciativa</h1>
+    <div style={{ maxWidth: 640 }}>
+      <h1 style={{ margin: '0 0 20px', fontSize: 20, fontWeight: 700, color: 'var(--text-1)' }}>Nueva iniciativa</h1>
 
-        <form action={formAction} className="panel flex flex-col gap-5">
+      <form action={formAction} className="panel flex flex-col gap-5">
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="areaId" className={labelClass}>
@@ -188,11 +181,10 @@ export default function NewInitiativeForm({
             </p>
           )}
 
-          <button type="submit" disabled={pending} className="btn primary" style={{ width: 'fit-content' }}>
-            {pending ? 'Creando…' : 'Crear iniciativa'}
-          </button>
-        </form>
-      </div>
-    </AppShell>
+        <button type="submit" disabled={pending} className="btn primary" style={{ width: 'fit-content' }}>
+          {pending ? 'Creando…' : 'Crear iniciativa'}
+        </button>
+      </form>
+    </div>
   );
 }

@@ -4,8 +4,6 @@ import { useActionState, useState } from 'react';
 import { inviteUser, type ActionState } from '../actions';
 import { ROLE_OPTIONS, AREA_SCOPED_ROLES } from '@/lib/roles';
 import type { AppRole } from '@/lib/initiatives/types';
-import { AppShell } from '@/components/app-shell';
-import { Breadcrumb } from '@/components/breadcrumb';
 
 const initialState: ActionState = { error: null };
 
@@ -127,41 +125,36 @@ function InviteFields({
 }
 
 export default function InviteUserForm({
-  user,
   areas,
 }: {
-  user: { fullName: string; role: AppRole; area?: { name: string } | null };
   areas: Array<{ id: string; name: string }>;
 }) {
   const [state, formAction, pending] = useActionState(inviteUser, initialState);
 
   return (
-    <AppShell user={user} active="/usuarios">
-      <Breadcrumb backHref="/usuarios" backLabel="Usuarios" />
-      <div style={{ maxWidth: 460 }}>
-        <h1 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 700, color: 'var(--text-1)' }}>Invitar usuario</h1>
-        <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-2)' }}>
-          Se crea la cuenta y un enlace de un solo uso para que la persona elija su propia contraseña. Tú se lo
-          compartes por el canal que prefieras — nadie más que ella la conoce en ningún momento.
-        </p>
+    <div style={{ maxWidth: 460 }}>
+      <h1 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 700, color: 'var(--text-1)' }}>Invitar usuario</h1>
+      <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-2)' }}>
+        Se crea la cuenta y un enlace de un solo uso para que la persona elija su propia contraseña. Tú se lo
+        compartes por el canal que prefieras — nadie más que ella la conoce en ningún momento.
+      </p>
 
-        {state.inviteLink && (
-          <div style={{ marginBottom: 20 }}>
-            <CopyLinkBox link={state.inviteLink} />
-          </div>
-        )}
+      {state.inviteLink && (
+        <div style={{ marginBottom: 20 }}>
+          <CopyLinkBox link={state.inviteLink} />
+        </div>
+      )}
 
-        {/* La key cambia cuando llega un enlace nuevo — React remonta el
-            formulario entero (campos no controlados y `role` incluidos)
-            en vez de necesitar un efecto que llame setState. */}
-        <InviteFields
-          key={state.inviteLink ?? 'idle'}
-          formAction={formAction}
-          pending={pending}
-          error={state.error}
-          areas={areas}
-        />
-      </div>
-    </AppShell>
+      {/* La key cambia cuando llega un enlace nuevo — React remonta el
+          formulario entero (campos no controlados y `role` incluidos)
+          en vez de necesitar un efecto que llame setState. */}
+      <InviteFields
+        key={state.inviteLink ?? 'idle'}
+        formAction={formAction}
+        pending={pending}
+        error={state.error}
+        areas={areas}
+      />
+    </div>
   );
 }

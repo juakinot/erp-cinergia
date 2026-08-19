@@ -4,8 +4,10 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import type { ConvertedToType, InputKind, InputStatus } from '@/lib/radar/types';
+import { CONVERTED_TO_LABELS, type ConvertedToType, type InputKind, type InputStatus } from '@/lib/radar/types';
 import type { TaskPriority } from '@/lib/tasks/types';
+import { notify, notifyMany } from '@/lib/notifications/notify';
+import { getAreaDirectorIds } from '@/lib/notifications/recipients';
 
 export type ActionState = { error: string | null };
 
@@ -51,7 +53,7 @@ function canApproveInput(
 async function fetchInput(supabase: Awaited<ReturnType<typeof createClient>>, inputId: string) {
   const { data, error } = await supabase
     .from('initiative_inputs')
-    .select('id, initiative_id, status, title, description, kind, priority')
+    .select('id, initiative_id, status, title, description, kind, priority, author_user_id')
     .eq('id', inputId)
     .maybeSingle();
   if (error || !data) throw new Error('Input no encontrado o sin acceso.');
@@ -112,7 +114,7 @@ export async function triageInput(_prevState: ActionState, formData: FormData): 
   const duplicateOfId = String(formData.get('duplicateOfId') ?? '').trim() || null;
 
   try {
-    const { supabase, user } = await requireSession(code);
+    const { supabase, initiative, user } = await requireSession(code);
     if (!isTriager(user.role)) return { error: 'Solo Coordinador o superior puede prevalidar un input.' };
 
     const input = await fetchInput(supabase, inputId);
@@ -132,6 +134,16 @@ export async function triageInput(_prevState: ActionState, formData: FormData): 
     if (error) return { error: error.message };
 
     await logTransition(supabase, inputId, 'PROPOSED', 'IN_REVIEW', user.id, notes || null);
+
+    const directorIds = (await getAreaDirectorIds(supabase, initiative.area_id)).filter((id) => id !== user.id);
+    await notifyMany(directorIds, {
+      category: 'RADAR',
+      kind: 'radar.needs_approval',
+      subjectType: 'initiative_input',
+      subjectId: inputId,
+      title: `Input del Radar listo para tu decisión: ${input.title}`,
+      linkPath: '/aprobaciones',
+    });
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error desconocido.' };
   }
@@ -164,6 +176,18 @@ export async function approveInput(code: string, inputId: string): Promise<Actio
     if (error) return { error: error.message };
 
     await logTransition(supabase, inputId, input.status, 'APPROVED', user.id);
+
+    if (input.author_user_id !== user.id) {
+      await notify({
+        userId: input.author_user_id,
+        category: 'RADAR',
+        kind: 'radar.approved',
+        subjectType: 'initiative_input',
+        subjectId: inputId,
+        title: `Se aprobó tu input del Radar: ${input.title}`,
+        linkPath: `/iniciativas/${code}/radar/${inputId}`,
+      });
+    }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error desconocido.' };
   }
@@ -199,6 +223,19 @@ export async function rejectInput(_prevState: ActionState, formData: FormData): 
     if (error) return { error: error.message };
 
     await logTransition(supabase, inputId, input.status, 'REJECTED', user.id, reason);
+
+    if (input.author_user_id !== user.id) {
+      await notify({
+        userId: input.author_user_id,
+        category: 'RADAR',
+        kind: 'radar.rejected',
+        subjectType: 'initiative_input',
+        subjectId: inputId,
+        title: `Se rechazó tu input del Radar: ${input.title}`,
+        body: reason,
+        linkPath: `/iniciativas/${code}/radar/${inputId}`,
+      });
+    }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error desconocido.' };
   }
@@ -210,7 +247,8 @@ export async function rejectInput(_prevState: ActionState, formData: FormData): 
 
 async function markConverted(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  inputId: string,
+  code: string,
+  input: { id: string; title: string; author_user_id: string },
   fromStatus: InputStatus,
   convertedToType: ConvertedToType,
   convertedToId: string,
@@ -225,8 +263,20 @@ async function markConverted(
       converted_by_user_id: userId,
       converted_at: new Date().toISOString(),
     })
-    .eq('id', inputId);
-  await logTransition(supabase, inputId, fromStatus, 'CONVERTED', userId);
+    .eq('id', input.id);
+  await logTransition(supabase, input.id, fromStatus, 'CONVERTED', userId);
+
+  if (input.author_user_id !== userId) {
+    await notify({
+      userId: input.author_user_id,
+      category: 'RADAR',
+      kind: 'radar.converted',
+      subjectType: 'initiative_input',
+      subjectId: input.id,
+      title: `Tu input del Radar se convirtió en ${CONVERTED_TO_LABELS[convertedToType]}: ${input.title}`,
+      linkPath: `/iniciativas/${code}/radar/${input.id}`,
+    });
+  }
 }
 
 export async function convertToTask(code: string, inputId: string): Promise<ActionState> {
@@ -282,7 +332,7 @@ export async function convertToTask(code: string, inputId: string): Promise<Acti
       actor_user_id: user.id,
     });
 
-    await markConverted(supabase, inputId, input.status, 'TASK', task.id, user.id);
+    await markConverted(supabase, code, input, input.status, 'TASK', task.id, user.id);
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error desconocido.' };
   }
@@ -327,7 +377,7 @@ export async function convertToRisk(_prevState: ActionState, formData: FormData)
       .single();
     if (riskError || !risk) return { error: `No se pudo crear el riesgo: ${riskError?.message ?? ''}` };
 
-    await markConverted(supabase, inputId, input.status, 'RISK', risk.id, user.id);
+    await markConverted(supabase, code, input, input.status, 'RISK', risk.id, user.id);
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error desconocido.' };
   }
@@ -361,7 +411,7 @@ export async function convertToObservation(code: string, inputId: string): Promi
       .single();
     if (obsError || !obs) return { error: `No se pudo crear la observación: ${obsError?.message ?? ''}` };
 
-    await markConverted(supabase, inputId, input.status, 'OBSERVATION', obs.id, user.id);
+    await markConverted(supabase, code, input, input.status, 'OBSERVATION', obs.id, user.id);
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error desconocido.' };
   }
@@ -409,7 +459,7 @@ export async function convertToLogisticsItem(code: string, inputId: string): Pro
       .single();
     if (itemError || !item) return { error: `No se pudo crear el ítem logístico: ${itemError?.message ?? ''}` };
 
-    await markConverted(supabase, inputId, input.status, 'LOGISTICS_ITEM', item.id, user.id);
+    await markConverted(supabase, code, input, input.status, 'LOGISTICS_ITEM', item.id, user.id);
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error desconocido.' };
   }

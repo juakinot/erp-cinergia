@@ -9,6 +9,8 @@ import { computeAutoFilledValues, missingRequiredFields } from '@/lib/actas/auto
 import { validateActaTransition, type ActaStatus } from '@/lib/actas/state-machine';
 import { ACTA_TEMPLATES } from '@/lib/actas/templates';
 import type { ActaTemplateDefinition } from '@/lib/actas/types';
+import { notify, notifyMany } from '@/lib/notifications/notify';
+import { getAreaDirectorIds, getPresidentIds } from '@/lib/notifications/recipients';
 
 export type ActionState = { error: string | null };
 
@@ -116,7 +118,7 @@ export async function transitionActa(code: string, actaId: string, toStatus: Act
 
   const { data: acta } = await supabase
     .from('actas')
-    .select('status, input_data, presidency_approved_at')
+    .select('status, input_data, presidency_approved_at, created_by_user_id')
     .eq('id', actaId)
     .maybeSingle();
   if (!acta) return { error: 'Acta no encontrada o sin acceso.' };
@@ -154,6 +156,50 @@ export async function transitionActa(code: string, actaId: string, toStatus: Act
   const { error } = await supabase.from('actas').update(patch).eq('id', actaId);
   if (error) return { error: error.message };
 
+  if (toStatus === 'REVIEW') {
+    const directorIds = (await getAreaDirectorIds(supabase, initiative.area_id)).filter((id) => id !== user.id);
+    await notifyMany(directorIds, {
+      category: 'APPROVALS',
+      kind: 'acta.needs_review',
+      subjectType: 'acta',
+      subjectId: actaId,
+      title: `Acta enviada a revisión: ${initiative.title}`,
+      linkPath: '/aprobaciones',
+    });
+  } else if (toStatus === 'APPROVED') {
+    if (template.requiresPresidencySignature) {
+      const presidentIds = (await getPresidentIds(supabase)).filter((id) => id !== user.id);
+      await notifyMany(presidentIds, {
+        category: 'APPROVALS',
+        kind: 'acta.needs_signature',
+        subjectType: 'acta',
+        subjectId: actaId,
+        title: `Acta esperando tu firma: ${initiative.title}`,
+        linkPath: '/aprobaciones',
+      });
+    } else if (acta.created_by_user_id !== user.id) {
+      await notify({
+        userId: acta.created_by_user_id,
+        category: 'INITIATIVES',
+        kind: 'acta.approved',
+        subjectType: 'acta',
+        subjectId: actaId,
+        title: `Se aprobó el acta de: ${initiative.title}`,
+        linkPath: `/iniciativas/${code}/acta`,
+      });
+    }
+  } else if (toStatus === 'DRAFT' && acta.created_by_user_id !== user.id) {
+    await notify({
+      userId: acta.created_by_user_id,
+      category: 'INITIATIVES',
+      kind: 'acta.returned',
+      subjectType: 'acta',
+      subjectId: actaId,
+      title: `Tu acta volvió a borrador: ${initiative.title}`,
+      linkPath: `/iniciativas/${code}/acta`,
+    });
+  }
+
   revalidatePath(`/iniciativas/${code}/acta`);
   revalidatePath(`/iniciativas/${code}`);
   return { error: null };
@@ -165,7 +211,17 @@ export async function presidencySign(code: string, actaId: string): Promise<Acti
   if (user.role !== 'PRESIDENT') return { error: 'Solo Presidencia puede firmar el acta.' };
 
   const supabase = await createClient();
-  const { data: acta } = await supabase.from('actas').select('status').eq('id', actaId).maybeSingle();
+  const { data: actaRaw } = await supabase
+    .from('actas')
+    .select('status, created_by_user_id, initiative_id, initiatives(title)')
+    .eq('id', actaId)
+    .maybeSingle();
+  const acta = actaRaw as unknown as {
+    status: string;
+    created_by_user_id: string;
+    initiative_id: string;
+    initiatives: { title: string } | { title: string }[] | null;
+  } | null;
   if (!acta) return { error: 'Acta no encontrada o sin acceso.' };
   if (acta.status !== 'APPROVED') {
     return { error: 'El acta debe estar aprobada internamente antes de la firma de Presidencia.' };
@@ -176,6 +232,19 @@ export async function presidencySign(code: string, actaId: string): Promise<Acti
     .update({ presidency_approved_by_user_id: user.id, presidency_approved_at: new Date().toISOString() })
     .eq('id', actaId);
   if (error) return { error: error.message };
+
+  const initiativeTitle = Array.isArray(acta.initiatives) ? acta.initiatives[0]?.title : acta.initiatives?.title;
+  if (acta.created_by_user_id !== user.id) {
+    await notify({
+      userId: acta.created_by_user_id,
+      category: 'INITIATIVES',
+      kind: 'acta.signed',
+      subjectType: 'acta',
+      subjectId: actaId,
+      title: `Presidencia firmó el acta de: ${initiativeTitle ?? ''}`,
+      linkPath: `/iniciativas/${code}/acta`,
+    });
+  }
 
   revalidatePath(`/iniciativas/${code}/acta`);
   revalidatePath(`/iniciativas/${code}`);

@@ -25,7 +25,7 @@ export interface ValidationResult {
   escalationReason?: EscalationReason | null;
 }
 
-async function getEscalationThreshold(supabase: SupabaseClient): Promise<number> {
+export async function getEscalationThreshold(supabase: SupabaseClient): Promise<number> {
   const { data } = await supabase
     .from('app_settings')
     .select('value')

@@ -6,6 +6,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { validateTransition } from '@/lib/initiatives/state-machine';
 import type { InitiativeRow, InitiativeStatus } from '@/lib/initiatives/types';
+import { notify, notifyMany } from '@/lib/notifications/notify';
+import { getAreaDirectorIds } from '@/lib/notifications/recipients';
 
 export type ActionState = { error: string | null };
 
@@ -91,10 +93,20 @@ export async function createInitiative(_prevState: ActionState, formData: FormDa
         coordinator_user_id: coordinatorUserId,
         created_by_user_id: user.id,
       })
-      .select('code')
+      .select('id, code')
       .single();
 
     if (!error && created) {
+      const directorIds = (await getAreaDirectorIds(supabase, areaId)).filter((id) => id !== user.id);
+      await notifyMany(directorIds, {
+        category: 'APPROVALS',
+        kind: 'initiative.needs_approval',
+        subjectType: 'initiative',
+        subjectId: created.id,
+        title: `Nueva iniciativa por aprobar: ${title}`,
+        linkPath: '/aprobaciones',
+      });
+
       revalidatePath('/iniciativas');
       redirect(`/iniciativas/${created.code}`);
     }
@@ -194,6 +206,18 @@ export async function approveInitiative(initiativeId: string): Promise<ActionSta
       .insert(KANBAN_COLUMNS.map((c) => ({ board_id: board.id, ...c })));
   }
 
+  if (initiative.created_by_user_id !== user.id) {
+    await notify({
+      userId: initiative.created_by_user_id,
+      category: 'INITIATIVES',
+      kind: 'initiative.approved',
+      subjectType: 'initiative',
+      subjectId: initiativeId,
+      title: `Se aprobó tu iniciativa: ${initiative.title}`,
+      linkPath: `/iniciativas/${initiative.code}`,
+    });
+  }
+
   revalidatePath(`/iniciativas`);
   revalidatePath(`/iniciativas/${initiative.code}`);
   return { error: null };
@@ -230,6 +254,19 @@ export async function cancelInitiative(initiativeId: string, reason: string): Pr
     actor_user_id: user.id,
     reason: reason.trim(),
   });
+
+  if (initiative.status === 'PROPOSAL' && initiative.created_by_user_id !== user.id) {
+    await notify({
+      userId: initiative.created_by_user_id,
+      category: 'INITIATIVES',
+      kind: 'initiative.rejected',
+      subjectType: 'initiative',
+      subjectId: initiativeId,
+      title: `Se rechazó tu iniciativa: ${initiative.title}`,
+      body: reason.trim(),
+      linkPath: `/iniciativas/${initiative.code}`,
+    });
+  }
 
   revalidatePath('/iniciativas');
   revalidatePath(`/iniciativas/${initiative.code}`);

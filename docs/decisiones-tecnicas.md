@@ -717,6 +717,67 @@ reclasificación de tipo) → convertir en Tarea (verificado que la fila
 tercero. RLS confirmado con sesión real de Miembro: un `update` directo a
 `initiative_inputs` saltándose la UI afecta 0 filas.
 
+## D23 · Bandeja de Aprobaciones unificada + Notificaciones in-app
+
+**Decisión.** `/aprobaciones` agrega en una sola pantalla lo que antes
+exigía entrar iniciativa por iniciativa: Iniciativas en `PROPOSAL`, Actas
+en `REVIEW` (o `APPROVED` esperando firma de Presidencia), y Radar en
+`IN_REVIEW` — cada sección con Aprobar/Rechazar (o "Firmar como
+Presidencia") reutilizando los mismos Server Actions que ya existían en
+cada módulo, no lógica nueva duplicada. La consulta (`src/lib/approvals/
+queries.ts`) respeta exactamente la misma autoridad que ya vive en
+`validateApprove`/`validateActaTransition`/`canApproveInput`: Director de
+Área ve solo lo que le corresponde dentro de su autoridad (sin escalar,
+sin firma de Presidencia pendiente); Presidencia ve solo lo que
+efectivamente escaló. El link "Aprobaciones" en el sidebar lleva un
+badge con el conteo en vivo — mismo patrón visual que el wireframe.
+
+**Notificaciones in-app** (`notifications`, ya en el esquema desde antes)
+se disparan en los mismos puntos que alimentan la bandeja: iniciativa
+nueva → Directores del área; acta a revisión → Directores del área; acta
+aprobada necesitando firma → Presidencia; Radar prevalidado → Directores
+del área — más el cierre del loop (aprobado/rechazado/convertido/firmado
+→ quien lo originó), para no depender de que alguien vuelva a revisar la
+bandeja por su cuenta. Un ícono de campana en el topbar (con badge de no
+leídas) lleva a `/notificaciones`, con marcar-como-leída individual y
+masivo.
+
+**Bug real de arquitectura Server/Client encontrado y corregido.**
+`AppShell` necesitaba volverse `async` para poder consultar el conteo de
+aprobaciones pendientes y de notificaciones no leídas en cada carga de
+página. Pero dos formularios (`new-initiative-form.tsx`,
+`invite-user-form.tsx`) eran Client Components que importaban y
+renderizaban `<AppShell>` directamente dentro de su propio árbol — un
+Client Component no puede renderizar un Server Component async importado
+así, y Next.js lo detectó recién en runtime (`You're importing a module
+that depends on "next/headers"... in the Pages Router`), no en build ni
+en lint. Se corrigió sacando el `<AppShell>`/`<Breadcrumb>` de ambos
+formularios hacia sus páginas padre (Server Components), dejando que los
+formularios reciban y rendericen solo su contenido interactivo — el
+patrón correcto que ya usaban el resto de páginas del sistema.
+
+**Escritura de notificaciones para otro usuario necesita el cliente
+admin.** RLS en `notifications` (`for all using (user_id = auth.uid())`)
+significa que ni siquiera el insert lo puede hacer la sesión normal a
+nombre de otra persona — se agregó `notify()`/`notifyMany()`
+(`src/lib/notifications/notify.ts`) usando `createAdminClient()`, con la
+misma disciplina que ya regía ese cliente (D8): el Server Action que lo
+llama ya validó la autoridad del actor antes de escribir la notificación
+ajena. `upsert` + `ignoreDuplicates` sobre `unique(user_id, kind,
+subject_id)` da idempotencia gratis — repetir el mismo trigger sobre el
+mismo objeto no duplica.
+
+**Verificado end-to-end con 4 cuentas de prueba** (dos Directores de
+Área en la misma área, un Coordinador, un Presidente): Director aprueba
+iniciativa/acta/input de su área y NO ve la que está escalada; Presidente
+ve solo la escalada y solo la acta esperando su firma; crear una
+iniciativa notifica al otro Director del área (no al que la creó);
+marcar como leída persiste y el badge de la campana baja. RLS confirmado
+con sesión de Coordinador: redirige fuera de `/aprobaciones` (mismo
+patrón que `/usuarios`, ese rol nunca aprueba nada ahí).
+
+---
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable
