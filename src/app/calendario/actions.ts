@@ -5,20 +5,9 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import type { CalendarItemKind, CalendarVisibility } from '@/lib/calendar/types';
+import { toLimaInstant } from '@/lib/time';
 
 export type ActionState = { error: string | null };
-
-/**
- * CINERGIA opera en Lima (UTC-5, sin horario de verano). El input
- * `datetime-local` entrega "2026-09-01T10:00" sin offset — pasarlo tal
- * cual a Postgres lo interpreta como UTC literal (10:00 UTC = 5:00 a.m.
- * en Lima), corriendo cada evento 5 horas. Se fija el offset acá, no en
- * el navegador, porque el servidor no puede asumir la zona horaria del
- * dispositivo de quien carga la página.
- */
-function toLimaInstant(datetimeLocal: string): string {
-  return `${datetimeLocal}:00-05:00`;
-}
 
 export async function createCalendarItem(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const title = String(formData.get('title') ?? '').trim();

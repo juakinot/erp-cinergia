@@ -969,6 +969,47 @@ comportamiento que ya tenía el Kanban por-iniciativa.
 
 ---
 
+## D30 · Ideación: campañas, borradores privados, votación, y un gap de ciclo de vida real
+
+**Decisión.** `/ideas` implementa el ciclo completo de `IdeaCampaign` →
+`Idea` → `IdeaVote`: Presidencia crea una campaña (valida en aplicación
+las 2 reglas que el esquema documenta pero no fuerza a nivel de columna
+— máximo 3 días de ventana, mínimo 7 días desde el cierre de la
+anterior); cualquiera propone una idea como borrador privado; el propio
+autor la publica; el equipo vota (no la propia); Director de esa área o
+Presidencia la promueve (crea una `Initiative` real con `source_idea_id`
+enlazado, tipo heredado de `default_initiative_type` del área) o la
+descarta con motivo.
+
+**Bug real de ciclo de vida encontrado antes de terminar de probar, no
+después.** `idea_campaigns.status` nace en `SCHEDULED` y nada en la app
+lo mueve a `ACTIVE` — pero `ideas_insert` en RLS exige literalmente
+`status = 'ACTIVE'` en la fila. Sin una transición explícita, sería
+imposible proponer una sola idea aunque `opens_at` ya hubiera pasado.
+Se encontró a mitad de la primera prueba real (el formulario de crear
+campaña funcionaba, pero no aparecía ningún control para proponer ideas
+después) y se corrigió agregando `activateCampaign`/`closeCampaign`
+como acciones explícitas de Presidencia — el mismo patrón que ya usan
+Encuestas (`DRAFT → ACTIVE` con botón) y Actas: esta app nunca transiciona
+estados por temporizador implícito, sería la única excepción sin este
+fix.
+
+**El umbral de zona horaria (D28) se generalizó, no se duplicó.**
+`toLimaInstant()`/`LIMA_TZ` se movieron a `src/lib/time.ts` en cuanto
+apareció un segundo campo `datetime-local` (apertura/cierre de campaña)
+con el mismo problema — Calendario también se actualizó para importar
+del mismo lugar en vez de mantener dos copias del mismo fix.
+
+**Verificado end-to-end con 5 cuentas reales**: Presidencia crea y
+activa una campaña; Miembro1 propone (borrador solo visible a él),
+publica; Miembro2 vota (botón "Votar" no aparece para el propio autor);
+Director del área de la idea promueve → nace `EV-2026-001` con
+`source_idea_id` correcto y tipo heredado del área. RLS confirmado con
+API directa: un Director de *otra* área intentando promover (`update`
+directo a `ideas.status`) afecta 0 filas.
+
+---
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable

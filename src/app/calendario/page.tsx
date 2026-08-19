@@ -2,13 +2,9 @@ import { requireUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/components/app-shell';
 import { KIND_BADGE, KIND_LABELS, VISIBILITY_LABELS, type CalendarItemRow } from '@/lib/calendar/types';
+import { LIMA_TZ } from '@/lib/time';
 import { NewCalendarItemForm } from './new-calendar-item-form';
 import { DeleteItemButton } from './delete-item-button';
-
-// Sin timeZone explícito, Intl formatea con la zona del proceso que
-// corre el servidor (no necesariamente Lima) — mismo motivo que
-// toLimaInstant() en actions.ts, ahora del lado de lectura.
-const LIMA_TZ = 'America/Lima';
 
 function formatRange(startsAt: string, endsAt: string, allDay: boolean) {
   const start = new Date(startsAt);
