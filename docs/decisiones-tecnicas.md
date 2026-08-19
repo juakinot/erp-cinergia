@@ -808,6 +808,43 @@ orden rojo→naranja→verde.
 
 ---
 
+## D25 · Observaciones: un canal "solo Dirección" donde ni el autor puede releer lo que escribió
+
+**Decisión.** `/iniciativas/[code]/observaciones` implementa `Observation`
+completo: hilos (`parent_id`) con visibilidad `INTERNAL` (todo el equipo)
+o `DIRECTION` (solo Director de Área y Presidencia), estado
+resuelta/abierta, y notificación al abrir un hilo `DIRECTION` o al
+responder uno propio. Un Miembro puede responder cualquier hilo que vea
+pero no abrir uno nuevo (`observations_insert` en RLS ya lo exige: rol
+`<> MEMBER` o que sea una respuesta con `parent_id`).
+
+**La visibilidad `DIRECTION` es honestamente unidireccional, no solo en
+el discurso.** `observations_select` exige `visibility = 'INTERNAL' OR
+rol IN (PRESIDENT, AREA_DIRECTOR)` — sin excepción para el propio autor.
+Un Coordinador que publica una observación "Solo Dirección" **no puede
+volver a verla él mismo** después de publicarla: es un canal de "esto
+sube y ya no es mío", pensado para escalar algo a liderazgo sin que quede
+archivado en su propia bandeja. Se lo advierte explícitamente en el
+formulario antes de publicar, para que no parezca que el envío falló.
+
+**Mismo bug de patrón que D21, evitado esta vez por inspección en vez de
+por prueba.** Antes de escribir el insert, se revisó si `.select()` tras
+crear la observación chocaría con `observations_select` igual que pasó
+con `survey_responses` — sí chocaría, para el caso `DIRECTION` publicado
+por alguien que no es Director/Presidencia. Se evitó desde el diseño:
+`createObservation` genera el `id` con `randomUUID()` antes del insert
+(sin pedir `RETURNING`) y lo reutiliza para la notificación a Dirección,
+en vez de descubrir el bug probando en el navegador.
+
+**Verificado end-to-end con 3 cuentas reales** (Miembro, Coordinador,
+Director de Área): Coordinador publica "Solo Dirección" y la pantalla le
+muestra la lista vacía a él mismo (correcto); Director sí la ve, responde,
+y marca resuelta; Miembro ni ve el hilo ni tiene el botón de "Nueva
+observación". RLS confirmado con un insert directo por API como Miembro
+(bloqueado) y una lectura directa del hilo `DIRECTION` (0 filas).
+
+---
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable

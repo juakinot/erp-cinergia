@@ -101,6 +101,9 @@ export default async function InitiativeDetailPage({ params }: { params: Promise
               <Link href={`/iniciativas/${row.code}/radar`} style={{ fontSize: 12, fontWeight: 600, color: 'var(--brand-primary)' }}>
                 Ver radar operativo →
               </Link>
+              <Link href={`/iniciativas/${row.code}/observaciones`} style={{ fontSize: 12, fontWeight: 600, color: 'var(--brand-primary)' }}>
+                Ver observaciones →
+              </Link>
               {row.type === 'EVENT' && (
                 <Link
                   href={`/iniciativas/${row.code}/logistica`}
