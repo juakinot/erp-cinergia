@@ -934,6 +934,41 @@ por otra persona (`0` filas afectadas por API directa).
 
 ---
 
+## D29 · Mi Kanban: tareas propias cruzando iniciativas, sin tocar el Kanban por-iniciativa
+
+**Decisión.** `/mi-kanban` agrupa las tareas asignadas a la sesión
+actual (`assignee_user_id = auth.uid()`) en columnas virtuales por
+`TaskStatus` — no reutiliza `kanban_columns`/`kanban_cards` porque esas
+filas son propias de UN tablero de UNA iniciativa (`column_id` distinto
+por iniciativa aunque representen el mismo estado conceptual). Cada
+tarjeta llama al mismo `moveTask(code, taskId, toStatus, reason)` que ya
+existe en Tareas, pasando el `code` de la iniciativa dueña de esa tarea
+específica — no uno fijo, porque acá cada tarjeta puede pertenecer a una
+iniciativa distinta.
+
+**Se construyó una tarjeta nueva (`PersonalTaskCard`) en vez de reusar
+`TaskCard` tal cual.** `TaskCard` recibe `initiativeCode` como prop
+única para todo el tablero (correcto en su contexto original, una sola
+iniciativa) y también resuelve reasignar-a-otra-persona — ninguna de las
+dos cosas aplica a una vista de "mis propias tareas". Forzar la reutilización
+habría significado reescribir su firma y arriesgar el módulo de Tareas ya
+probado; se prefirió una tarjeta más simple y dejar `TaskCard` intacto.
+
+**La validación de "no completar sola una tarea crítica" no se
+duplicó** — el filtro en la UI (`to !== 'COMPLETED' || !requires_approval`)
+es solo para no mostrar un botón que fallaría; la regla real la sigue
+imponiendo `validateTaskTransition` dentro del mismo `moveTask` ya
+existente, con el `isManager` real calculado server-side.
+
+**Verificado con una cuenta de Miembro real y tareas en 2 iniciativas
+distintas**: ambas aparecen en la misma columna "Pendiente"; mover una
+llama correctamente al `moveTask` de su propia iniciativa; una tarea
+`CRITICAL` con `requires_approval` en revisión no ofrece "Completar" —
+confirma que el Miembro no puede autoaprobarse el cierre, mismo
+comportamiento que ya tenía el Kanban por-iniciativa.
+
+---
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable
