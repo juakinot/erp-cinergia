@@ -18,6 +18,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Aprobaciones', href: '/aprobaciones', roles: ['PRESIDENT', 'AREA_DIRECTOR'] },
   { label: 'Semáforo', href: '/semaforo', roles: ['PRESIDENT', 'AREA_DIRECTOR', 'REPORTS_DIRECTOR', 'COORDINATOR'] },
   { label: 'Propuestas de mejora', href: '/propuestas', roles: ['PRESIDENT', 'AREA_DIRECTOR', 'REPORTS_DIRECTOR'] },
+  { label: 'Rendimiento por área', href: '/reportes', roles: ['PRESIDENT', 'REPORTS_DIRECTOR'] },
   { label: 'Mi Kanban', href: '/mi-kanban', roles: ['PRESIDENT', 'AREA_DIRECTOR', 'COORDINATOR', 'MEMBER'] },
   { label: 'Ideación', href: '/ideas' },
   { label: 'Calendario', href: '/calendario' },

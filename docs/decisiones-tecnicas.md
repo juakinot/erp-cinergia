@@ -1010,6 +1010,56 @@ directo a `ideas.status`) afecta 0 filas.
 
 ---
 
+## D31 · Rendimiento por área: las vistas de D8 ya estaban listas, solo faltaba la pantalla
+
+**Decisión.** `/reportes` es la primera pantalla real del Director de
+Reportes. Reutiliza tal cual las 4 vistas `v_report_*` y el bloqueo de
+acceso que ya documentaba D8 desde antes de esta sesión de módulos — no
+hizo falta tocar SQL. El patrón exacto de D8 se sigue al pie de la letra:
+`createAdminClient()` (service_role, bypassa RLS) solo se invoca después
+de verificar en código que `user.role` sea `PRESIDENT` o
+`REPORTS_DIRECTOR`; para cualquier otro rol la página redirige antes de
+tocar el admin client.
+
+**Sorpresa positiva: la mayoría de las vistas no dependen del cron que
+falta.** `v_report_initiatives`, `v_report_actas` y `v_report_progress`
+computan en vivo sobre las tablas base (joins y agregaciones normales) —
+la única que depende de `risk_snapshots` (que ningún proceso llena
+todavía) es `v_report_risk_history`, y por eso se omitió del dashboard:
+no tiene sentido mostrar un gráfico de tendencia con una sola vista de
+datos siempre. El resto del dashboard (KPIs, comparativo por área,
+semáforo agregado, detalle por iniciativa) es 100% real hoy, sin esperar
+ninguna infraestructura pendiente.
+
+**Limitación heredada, no introducida acá:** la columna `overdue_tasks`
+de `v_report_progress` cuenta `status = 'OVERDUE'`, pero ningún Server
+Action de esta app pone nunca una tarea en ese estado (ver la nota ya
+existente en `src/lib/tasks/types.ts` sobre D16) — así que esa columna
+será `0` indefinidamente hasta que exista el proceso que la calcule.
+Verificado con datos reales: una tarea vencida (`due_date` pasado,
+`status = 'PENDING'`) aparece con `0/1` completadas pero no se cuenta
+como "vencida" en el detalle — coherente con el resto del sistema, no
+un bug nuevo de este dashboard.
+
+**Ningún widget permite bajar al detalle operativo — por diseño, y
+también porque RLS no lo permitiría.** `can_access_area()` no incluye
+`REPORTS_DIRECTOR` en su lista de roles con acceso de área — un Director
+de Reportes no podría abrir `/iniciativas/[code]` aunque el dashboard
+ofreciera un link (por eso no se ofrece ninguno); el único puente hacia
+lo operativo es la Propuesta de mejora, enlazada explícitamente en el
+encabezado.
+
+**Verificado con cuentas reales**: estado vacío honesto sin iniciativas;
+con datos reales (una iniciativa cerrada con tareas a tiempo, una activa
+con tarea vencida) los KPIs, el comparativo por área y la tabla de
+detalle calculan correctamente. RLS/autorización confirmada con cuenta
+de Coordinador: redirige fuera de `/reportes` antes de tocar el admin
+client — y las vistas en sí ya estaban con `anon`/`authenticated`
+revocado a nivel de Postgres desde D8, verificado de nuevo en esta
+sesión.
+
+---
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable
@@ -1018,3 +1068,11 @@ directo a `ideas.status`) afecta 0 filas.
   Sin implementar hasta Fase 3.
 - **Generación de Actas por IA y exportación a PDF** (D17): alcance
   explícitamente diferido, no implementado.
+- **Cron que llena `risk_snapshots`**: sin este proceso, `v_report_risk_history`
+  se queda vacía y el resto del semáforo (`initiatives.risk_level`) nunca se
+  recalcula solo — es la única pieza de infraestructura que Reportes (D31) y
+  Semáforo (D24) todavía necesitan de verdad.
+- **Cron de auto-escalación del Radar** (`initiative_inputs.escalated_at`,
+  >48h sin atender): referenciado en D23, sin implementar.
+- **Bucket de Supabase Storage para Adjuntos**: la tabla `attachments` existe,
+  sin UI ni almacenamiento real conectado.
