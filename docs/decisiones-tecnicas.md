@@ -1060,6 +1060,43 @@ sesión.
 
 ---
 
+## D32 · `AppShell` hacía sus consultas en secuencia — un usuario real lo notó
+
+**Decisión.** `getPendingApprovals` (dentro de `AppShell`, que envuelve
+*toda* página autenticada desde D18) y `getUnreadNotificationCount`
+(D23) se piden ahora con `Promise.all`, no con `await` uno detrás de
+otro. Lo mismo dentro de `getForAreaDirector`/`getForPresident`: sus 3-4
+consultas (umbral de escalación, iniciativas, actas, Radar) son
+independientes entre sí — ninguna necesita el resultado de otra para
+construir su propio filtro, solo el filtrado de iniciativas en JS
+depende del umbral ya resuelto — así que también pasan a dispararse en
+paralelo.
+
+**Por qué importa acá y no en cualquier otro módulo.** El resto de los
+módulos de esta sesión (Logística, Encuestas, Radar, Propuestas...) solo
+pagan su costo de consulta en su propia página. `AppShell` corre en
+*cada* carga de página, para *cada* usuario — así que la secuencia de
+4-5 idas y vueltas a Supabase que este bug agregaba (D23 sumado a D18)
+no se sentía como "esta pantalla es lenta" sino como "toda la app es
+lenta", que es exactamente lo que un Director de Área reportó en
+producción.
+
+**Encontrado por un reporte real, no por profiling.** Sebastián avisó
+que la página iba lenta justo después de terminar de registrarse — su
+rol (`AREA_DIRECTOR`) es el que más consultas secuenciales dispara en
+`AppShell` (a diferencia de `MEMBER`, que solo paga el costo de
+notificaciones). Revisar `src/lib/approvals/queries.ts` confirmó 4
+`await` en cadena por carga de página, además de los 2 de `AppShell`
+mismo — 5-6 idas y vueltas de red secuenciales antes de que la página
+empezara a construirse, sin contar lo que la página en sí ya necesitaba
+consultar.
+
+**No cambia qué se consulta, solo cuándo.** Mismo resultado, mismos
+datos — verificado con una cuenta de prueba real (`AREA_DIRECTOR`) tras
+el cambio.
+
+---
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable

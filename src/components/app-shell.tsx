@@ -59,13 +59,14 @@ export async function AppShell({
 
   const supabase = await createClient();
 
-  let approvalsCount = 0;
-  if (user.role === 'PRESIDENT' || user.role === 'AREA_DIRECTOR') {
-    const pending = await getPendingApprovals(supabase, { id: user.id, role: user.role, areaId: user.areaId ?? null });
-    approvalsCount = pendingCount(pending);
-  }
-
-  const unreadCount = await getUnreadNotificationCount(supabase, user.id);
+  // Antes secuencial (D23): esperaba las aprobaciones pendientes y recién
+  // después pedía las notificaciones. Son consultas independientes — no
+  // hay motivo para pagar su latencia dos veces en cada carga de página.
+  const [pending, unreadCount] = await Promise.all([
+    getPendingApprovals(supabase, { id: user.id, role: user.role, areaId: user.areaId ?? null }),
+    getUnreadNotificationCount(supabase, user.id),
+  ]);
+  const approvalsCount = pendingCount(pending);
 
   return (
     <div className="app-shell">

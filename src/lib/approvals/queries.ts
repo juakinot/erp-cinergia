@@ -63,76 +63,83 @@ export async function getPendingApprovals(
   return EMPTY;
 }
 
+/**
+ * Las 3-4 consultas de cada función de acá abajo son independientes entre
+ * sí (ninguna necesita el resultado de otra para construir su propio
+ * filtro) — solo el filtrado de `initiatives` en JS depende de
+ * `threshold`. Antes se pedían con `await` en secuencia, una detrás de
+ * otra; como esta función corre en CADA carga de página (vive en
+ * AppShell, D23), esa secuencia sumaba su latencia de red 3-4 veces por
+ * click. `Promise.all` las dispara en paralelo — la espera total pasa a
+ * ser la de la consulta más lenta, no la suma de las cuatro.
+ */
 async function getForAreaDirector(supabase: SupabaseClient, areaId: string): Promise<PendingApprovals> {
-  const threshold = await getEscalationThreshold(supabase);
-
-  const { data: initiativeRows } = await supabase
-    .from('initiatives')
-    .select('id, code, title, type, area_id, projected_budget, escalation_requested_at, created_at, areas(name)')
-    .eq('status', 'PROPOSAL')
-    .eq('area_id', areaId);
+  const [threshold, { data: initiativeRows }, { data: actaRows }, { data: radarRows }] = await Promise.all([
+    getEscalationThreshold(supabase),
+    supabase
+      .from('initiatives')
+      .select('id, code, title, type, area_id, projected_budget, escalation_requested_at, created_at, areas(name)')
+      .eq('status', 'PROPOSAL')
+      .eq('area_id', areaId),
+    supabase
+      .from('actas')
+      .select('id, initiative_id, status, created_at, initiatives!inner(code, title, area_id)')
+      .eq('status', 'REVIEW')
+      .eq('initiatives.area_id', areaId),
+    supabase
+      .from('initiative_inputs')
+      .select('id, initiative_id, title, kind, priority, created_at, initiatives!inner(code, title, area_id)')
+      .eq('status', 'IN_REVIEW')
+      .eq('initiatives.area_id', areaId),
+  ]);
 
   const initiatives = ((initiativeRows ?? []) as unknown as RawInitiative[])
     .filter((i) => !i.escalation_requested_at && (!i.projected_budget || Number(i.projected_budget) <= threshold))
     .map(mapInitiative);
-
-  const { data: actaRows } = await supabase
-    .from('actas')
-    .select('id, initiative_id, status, created_at, initiatives!inner(code, title, area_id)')
-    .eq('status', 'REVIEW')
-    .eq('initiatives.area_id', areaId);
-
   const actas = ((actaRows ?? []) as unknown as RawActa[]).map((a) => mapActa(a, 'REVIEW'));
-
-  const { data: radarRows } = await supabase
-    .from('initiative_inputs')
-    .select('id, initiative_id, title, kind, priority, created_at, initiatives!inner(code, title, area_id)')
-    .eq('status', 'IN_REVIEW')
-    .eq('initiatives.area_id', areaId);
-
   const radarInputs = ((radarRows ?? []) as unknown as RawRadar[]).map(mapRadar);
 
   return { initiatives, actas, radarInputs };
 }
 
 async function getForPresident(supabase: SupabaseClient): Promise<PendingApprovals> {
-  const threshold = await getEscalationThreshold(supabase);
-
-  const { data: initiativeRows } = await supabase
-    .from('initiatives')
-    .select('id, code, title, type, area_id, projected_budget, escalation_requested_at, created_at, areas(name)')
-    .eq('status', 'PROPOSAL');
-
-  const initiatives = ((initiativeRows ?? []) as unknown as RawInitiative[])
-    .filter((i) => Boolean(i.escalation_requested_at) || (i.projected_budget !== null && Number(i.projected_budget) > threshold))
-    .map(mapInitiative);
-
   // Firma de Presidencia: acta ya aprobada internamente, cuya plantilla la
   // exige, y que todavía no la tiene — no es lo mismo que "en revisión".
   const typesNeedingSignature = ACTA_TEMPLATES.filter((t) => t.requiresPresidencySignature).map(
     (t) => t.initiativeType
   );
 
-  let actas: PendingActa[] = [];
-  if (typesNeedingSignature.length > 0) {
-    const { data: actaRows } = await supabase
-      .from('actas')
-      .select('id, initiative_id, status, created_at, presidency_approved_at, initiatives!inner(code, title, type, area_id)')
-      .eq('status', 'APPROVED')
-      .is('presidency_approved_at', null)
-      .in('initiatives.type', typesNeedingSignature);
-    actas = ((actaRows ?? []) as unknown as RawActa[]).map((a) => mapActa(a, 'SIGNATURE'));
-  }
+  const actasQuery =
+    typesNeedingSignature.length > 0
+      ? supabase
+          .from('actas')
+          .select('id, initiative_id, status, created_at, presidency_approved_at, initiatives!inner(code, title, type, area_id)')
+          .eq('status', 'APPROVED')
+          .is('presidency_approved_at', null)
+          .in('initiatives.type', typesNeedingSignature)
+      : Promise.resolve({ data: [] as RawActa[] });
 
-  // Radar: la única señal de escalación hoy es `escalated_at` (cron #20 de
-  // auto-escalado por >48h sin atender), que todavía no corre — esta
-  // sección queda honestamente vacía hasta que ese job exista.
-  const { data: radarRows } = await supabase
-    .from('initiative_inputs')
-    .select('id, initiative_id, title, kind, priority, created_at, initiatives!inner(code, title)')
-    .eq('status', 'IN_REVIEW')
-    .not('escalated_at', 'is', null);
+  const [threshold, { data: initiativeRows }, { data: actaRows }, { data: radarRows }] = await Promise.all([
+    getEscalationThreshold(supabase),
+    supabase
+      .from('initiatives')
+      .select('id, code, title, type, area_id, projected_budget, escalation_requested_at, created_at, areas(name)')
+      .eq('status', 'PROPOSAL'),
+    actasQuery,
+    // Radar: la única señal de escalación hoy es `escalated_at` (cron #20
+    // de auto-escalado por >48h sin atender), que todavía no corre — esta
+    // sección queda honestamente vacía hasta que ese job exista.
+    supabase
+      .from('initiative_inputs')
+      .select('id, initiative_id, title, kind, priority, created_at, initiatives!inner(code, title)')
+      .eq('status', 'IN_REVIEW')
+      .not('escalated_at', 'is', null),
+  ]);
 
+  const initiatives = ((initiativeRows ?? []) as unknown as RawInitiative[])
+    .filter((i) => Boolean(i.escalation_requested_at) || (i.projected_budget !== null && Number(i.projected_budget) > threshold))
+    .map(mapInitiative);
+  const actas = ((actaRows ?? []) as unknown as RawActa[]).map((a) => mapActa(a, 'SIGNATURE'));
   const radarInputs = ((radarRows ?? []) as unknown as RawRadar[]).map(mapRadar);
 
   return { initiatives, actas, radarInputs };
