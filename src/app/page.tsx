@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { STATUS_LABELS, TYPE_LABELS, type InitiativeStatus } from '@/lib/initiatives/types';
@@ -12,6 +13,10 @@ const RISK_BADGE: Record<string, 'verde' | 'amarillo' | 'rojo'> = {
 
 export default async function Home() {
   const user = await requireUser();
+  // DEAN no tiene ningún grant de RLS sobre initiatives (D35) — esta
+  // consulta le devolvería vacío. Su pantalla propia es /resumen.
+  if (user.role === 'DEAN') redirect('/resumen');
+
   const supabase = await createClient();
 
   const { data: initiatives } = await supabase

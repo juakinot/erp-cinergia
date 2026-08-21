@@ -6,6 +6,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   REPORTS_DIRECTOR: 'Director de Reportes',
   COORDINATOR: 'Coordinador',
   MEMBER: 'Miembro',
+  DEAN: 'Decano',
 };
 
 /** Roles que pertenecen a una sola área. PRESIDENT y REPORTS_DIRECTOR son cross-área. */

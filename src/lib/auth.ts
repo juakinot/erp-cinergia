@@ -36,7 +36,8 @@ export async function getCurrentUser() {
       | 'AREA_DIRECTOR'
       | 'REPORTS_DIRECTOR'
       | 'COORDINATOR'
-      | 'MEMBER',
+      | 'MEMBER'
+      | 'DEAN',
     areaId: profile.area_id as string | null,
     // Supabase tipa las relaciones anidadas como arreglo salvo que se
     // declaren tipos generados; con una fila siempre es el primer elemento.

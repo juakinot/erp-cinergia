@@ -1190,6 +1190,52 @@ token).
 
 ---
 
+## D35 · Rol DEAN — cero grants de RLS, toda su lectura pasa por código
+
+**Decisión.** Nuevo rol `DEAN` para los 2 Decanos de la facultad — externos
+a CINERGIA, sin ninguna autoridad de escritura, necesitan transparencia
+sobre qué eventos/iniciativas están en curso, próximos o recién cerrados,
+explícitamente **sin** presupuesto, tareas, Radar, encuestas ni ningún
+otro dato operativo. Una sola pantalla, `/resumen`.
+
+**Diseño de seguridad: ningún grant directo, ni siquiera de lectura.**
+Se consideró (y se descartó) sumar `DEAN` a `can_access_area()` — esa
+función es la base de la mayoría de políticas `_select` del sistema
+(Tareas, Actas, Logística, Radar, Observaciones internas...), así que
+ensancharla habría dado a los Decanos acceso a todo el detalle operativo
+de golpe, exactamente lo que pidieron evitar. En su lugar se replicó al
+pie de la letra el patrón de `REPORTS_DIRECTOR` (D8): `DEAN` no tiene
+**ninguna** política RLS a su nombre en ninguna tabla — su única fuente
+de datos es `/resumen`, que verifica el rol en código de servidor y
+recién ahí usa el cliente admin (`service_role`, bypassa RLS) con una
+consulta explícita que selecciona solo título/tipo/estado/fecha/área/
+coordinador. El presupuesto, por ejemplo, nunca se selecciona — no es
+una columna oculta por RLS, directamente no está en el `select()`.
+
+**Verificado intentando saltarse la UI**, con la sesión normal (no
+admin) de una cuenta Decano real: `select * from initiatives` devuelve 0
+filas, igual `tasks`; `select * from users` devuelve solo su propio
+perfil (1 fila, no el directorio completo que sí ve `REPORTS_DIRECTOR`);
+un `insert` en `initiatives` lo rechaza RLS. Cero superficie de acceso
+más allá de lo que la propia pantalla decide mostrar.
+
+**Filtro de negocio, no de seguridad.** `/resumen` excluye iniciativas en
+`IDEA`/`PROPOSAL`/`CANCELLED` — todavía no son un compromiso real, no
+tiene sentido mostrárselas a alguien externo pidiendo transparencia sobre
+lo que la asociación *está haciendo*. Esa exclusión vive en la consulta
+de la página, no en RLS (no es una regla de seguridad, es una decisión
+de qué mostrar).
+
+**Sidebar reducido a una sola opción.** El resto de los ítems de
+navegación no tenían restricción de rol explícita (`Inicio`,
+`Iniciativas`, `Ideación`, `Calendario`, `Miembros` estaban abiertos a
+"cualquiera" por diseño original) — hubo que agregarles `roles`
+explícitos a los 5 para que `DEAN` no los viera listados sin poder
+usarlos. `/` (Inicio) redirige a `/resumen` para este rol, porque su
+propia consulta fallaría (0 filas) contra RLS.
+
+---
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable

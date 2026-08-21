@@ -10,18 +10,24 @@ interface NavItem {
   roles?: AppRole[];
 }
 
+/** Los 5 roles internos — todo lo que no es explícitamente para DEAN. */
+const INTERNAL_ROLES: AppRole[] = ['PRESIDENT', 'AREA_DIRECTOR', 'REPORTS_DIRECTOR', 'COORDINATOR', 'MEMBER'];
+
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Inicio', href: '/' },
-  { label: 'Iniciativas', href: '/iniciativas' },
+  { label: 'Inicio', href: '/', roles: INTERNAL_ROLES },
+  { label: 'Iniciativas', href: '/iniciativas', roles: INTERNAL_ROLES },
   { label: 'Aprobaciones', href: '/aprobaciones', roles: ['PRESIDENT', 'AREA_DIRECTOR'] },
   { label: 'Semáforo', href: '/semaforo', roles: ['PRESIDENT', 'AREA_DIRECTOR', 'REPORTS_DIRECTOR', 'COORDINATOR'] },
   { label: 'Propuestas de mejora', href: '/propuestas', roles: ['PRESIDENT', 'AREA_DIRECTOR', 'REPORTS_DIRECTOR'] },
   { label: 'Rendimiento por área', href: '/reportes', roles: ['PRESIDENT', 'REPORTS_DIRECTOR'] },
   { label: 'Mi Kanban', href: '/mi-kanban', roles: ['PRESIDENT', 'AREA_DIRECTOR', 'COORDINATOR', 'MEMBER'] },
-  { label: 'Ideación', href: '/ideas' },
-  { label: 'Calendario', href: '/calendario' },
-  { label: 'Miembros', href: '/miembros' },
+  { label: 'Ideación', href: '/ideas', roles: INTERNAL_ROLES },
+  { label: 'Calendario', href: '/calendario', roles: INTERNAL_ROLES },
+  { label: 'Miembros', href: '/miembros', roles: INTERNAL_ROLES },
   { label: 'Usuarios', href: '/usuarios', roles: ['PRESIDENT'] },
+  // Única pantalla del rol DEAN (D35) — externo a CINERGIA, sin acceso a
+  // nada más del sistema.
+  { label: 'Resumen', href: '/resumen', roles: ['DEAN'] },
 ];
 
 function initialsOf(fullName: string): string {

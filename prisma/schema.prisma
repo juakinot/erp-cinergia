@@ -29,6 +29,13 @@ enum Role {
   REPORTS_DIRECTOR
   COORDINATOR
   MEMBER
+  /// Decano de la facultad — externo a CINERGIA. Sin autoridad de escritura
+  /// en ningún lado; ve un resumen de solo lectura de iniciativas por
+  /// transparencia. Deliberadamente fuera de can_access_area (igual que
+  /// REPORTS_DIRECTOR): su lectura no pasa por RLS de las tablas
+  /// operativas, sino por una consulta explícita en código de servidor,
+  /// mismo patrón que D8 para las vistas de reporte.
+  DEAN
 }
 
 enum AreaSlug {

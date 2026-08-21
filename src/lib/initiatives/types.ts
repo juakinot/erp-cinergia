@@ -22,7 +22,7 @@ export type InitiativeStatus =
 
 export type EscalationReason = 'BUDGET_THRESHOLD' | 'CROSS_AREA' | 'DIRECTOR_REQUEST';
 
-export type AppRole = 'PRESIDENT' | 'AREA_DIRECTOR' | 'REPORTS_DIRECTOR' | 'COORDINATOR' | 'MEMBER';
+export type AppRole = 'PRESIDENT' | 'AREA_DIRECTOR' | 'REPORTS_DIRECTOR' | 'COORDINATOR' | 'MEMBER' | 'DEAN';
 
 export interface InitiativeRow {
   id: string;
