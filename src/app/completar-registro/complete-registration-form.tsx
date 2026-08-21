@@ -52,7 +52,7 @@ export default function CompleteRegistrationForm({ fullName }: { fullName: strin
     <main className="flex min-h-screen items-center justify-center bg-[var(--surface-page)] px-4">
       <div className="w-full max-w-sm rounded-lg border border-[var(--border-soft)] bg-[var(--surface-panel)] p-8 shadow-sm">
         <p className="font-mono text-xs tracking-[0.14em] text-[var(--text-2)] uppercase">CINERGIA · ERP</p>
-        <h1 className="mt-2 text-xl font-bold text-[var(--text-1)]">Bienvenido, {fullName}</h1>
+        <h1 className="mt-2 text-xl font-bold text-[var(--text-1)]">Hola, {fullName}</h1>
         <p className="mt-1 text-sm text-[var(--text-2)]">
           Elige tu contraseña para terminar de configurar tu cuenta.
         </p>
