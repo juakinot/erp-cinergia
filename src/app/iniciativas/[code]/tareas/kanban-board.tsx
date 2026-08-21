@@ -42,16 +42,16 @@ export function KanbanBoard({
       {columns.map((column) => {
         const columnTasks = tasksByColumn.get(column.id) ?? [];
         return (
-          <div key={column.id} className="w-72 shrink-0 rounded-lg border border-[#E8EEF5] bg-white">
-            <div className="flex items-center justify-between border-b border-[#E8EEF5] px-3 py-2.5">
-              <h2 className="text-sm font-semibold text-[#003360]">{column.name}</h2>
-              <span className="rounded-full bg-[#F4F7FB] px-2 py-0.5 text-[10px] font-semibold text-[#5A6B82]">
+          <div key={column.id} className="w-72 shrink-0 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-panel)]">
+            <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-3 py-2.5">
+              <h2 className="text-sm font-semibold text-[var(--text-1)]">{column.name}</h2>
+              <span className="rounded-full bg-[var(--surface-page)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-2)]">
                 {columnTasks.length}
               </span>
             </div>
             <div className="flex flex-col gap-2 p-2.5">
               {columnTasks.length === 0 ? (
-                <p className="px-1 py-2 text-xs text-[#B6C2D2]">Sin tareas.</p>
+                <p className="px-1 py-2 text-xs text-[var(--text-3)]">Sin tareas.</p>
               ) : (
                 columnTasks.map((task) => (
                   <TaskCard

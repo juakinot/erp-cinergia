@@ -21,11 +21,11 @@ export function CreateActaButton({ initiativeCode }: { initiativeCode: string })
             if (!result.error) router.refresh();
           })
         }
-        className="w-fit rounded-md bg-[#0066CC] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0059B3] disabled:opacity-60"
+        className="w-fit rounded-md bg-[var(--brand-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-primary-hover)] disabled:opacity-60"
       >
         {pending ? 'Creando…' : 'Crear acta'}
       </button>
-      {error && <p className="text-xs text-[#B4232F]">{error}</p>}
+      {error && <p className="text-xs text-[var(--alert-crit)]">{error}</p>}
     </div>
   );
 }

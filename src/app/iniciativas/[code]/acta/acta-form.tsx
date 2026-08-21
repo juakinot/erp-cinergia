@@ -29,14 +29,14 @@ const STATUS_LABELS: Record<ActaStatus, string> = {
 };
 
 const STATUS_STYLES: Record<ActaStatus, string> = {
-  DRAFT: 'bg-[#E8EEF5] text-[#5A6B82]',
-  REVIEW: 'bg-[#FDE4C0] text-[#F29918]',
-  APPROVED: 'bg-[#CFE7DC] text-[#2C7A5A]',
-  PUBLISHED: 'bg-[#CCE5FF] text-[#0066CC]',
+  DRAFT: 'bg-[var(--border-soft)] text-[var(--text-2)]',
+  REVIEW: 'bg-[var(--alert-warn-soft)] text-[var(--alert-warn)]',
+  APPROVED: 'bg-[var(--state-ok-soft)] text-[var(--state-ok)]',
+  PUBLISHED: 'bg-[var(--brand-primary-soft)] text-[var(--brand-primary)]',
 };
 
 const inputClass =
-  'w-full rounded-md border border-[#D3DDEA] px-2.5 py-1.5 text-sm text-[#003360] outline-none focus:border-[#0066CC] focus:ring-1 focus:ring-[#0066CC]';
+  'w-full rounded-md border border-[var(--border-mid)] px-2.5 py-1.5 text-sm text-[var(--text-1)] outline-none focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)]';
 
 function isPairShaped(value: unknown): value is Array<[string, string]> {
   return Array.isArray(value) && value.every((v) => Array.isArray(v) && v.length === 2);
@@ -44,12 +44,12 @@ function isPairShaped(value: unknown): value is Array<[string, string]> {
 
 function ReadOnlyValue({ field, value }: { field: ActaField; value: unknown }) {
   if (value === undefined || value === null || value === '') {
-    return <p className="text-sm text-[#B6C2D2] italic">Sin llenar.</p>;
+    return <p className="text-sm text-[var(--text-3)] italic">Sin llenar.</p>;
   }
 
   if (field.type === 'textList' && Array.isArray(value)) {
     return (
-      <ul className="list-disc pl-5 text-sm text-[#003360]">
+      <ul className="list-disc pl-5 text-sm text-[var(--text-1)]">
         {value.map((v, i) => (
           <li key={i}>{String(v)}</li>
         ))}
@@ -62,16 +62,16 @@ function ReadOnlyValue({ field, value }: { field: ActaField; value: unknown }) {
     return (
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-left text-[10px] tracking-[0.06em] text-[#B6C2D2] uppercase">
+          <tr className="text-left text-[10px] tracking-[0.06em] text-[var(--text-3)] uppercase">
             <th className="pr-2 pb-1 font-medium">{c1}</th>
             <th className="pb-1 font-medium">{c2}</th>
           </tr>
         </thead>
         <tbody>
           {value.map((pair, i) => (
-            <tr key={i} className="border-t border-[#E8EEF5]">
-              <td className="py-1 pr-2 text-[#003360]">{pair[0]}</td>
-              <td className="py-1 text-[#003360]">{pair[1]}</td>
+            <tr key={i} className="border-t border-[var(--border-soft)]">
+              <td className="py-1 pr-2 text-[var(--text-1)]">{pair[0]}</td>
+              <td className="py-1 text-[var(--text-1)]">{pair[1]}</td>
             </tr>
           ))}
         </tbody>
@@ -81,7 +81,7 @@ function ReadOnlyValue({ field, value }: { field: ActaField; value: unknown }) {
 
   if (field.type === 'personList' && Array.isArray(value)) {
     return (
-      <ul className="flex flex-col gap-0.5 text-sm text-[#003360]">
+      <ul className="flex flex-col gap-0.5 text-sm text-[var(--text-1)]">
         {(value as Array<{ name: string; role: string; isLeader: boolean }>).map((p, i) => (
           <li key={i}>
             {p.name} — {p.role}
@@ -96,7 +96,7 @@ function ReadOnlyValue({ field, value }: { field: ActaField; value: unknown }) {
     return (
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-left text-[10px] tracking-[0.06em] text-[#B6C2D2] uppercase">
+          <tr className="text-left text-[10px] tracking-[0.06em] text-[var(--text-3)] uppercase">
             <th className="pr-2 pb-1 font-medium">Descripción</th>
             <th className="pr-2 pb-1 font-medium">Prob.</th>
             <th className="pr-2 pb-1 font-medium">Impacto</th>
@@ -106,11 +106,11 @@ function ReadOnlyValue({ field, value }: { field: ActaField; value: unknown }) {
         <tbody>
           {(value as Array<{ description: string; probability: string; impact: string; mitigation: string }>).map(
             (r, i) => (
-              <tr key={i} className="border-t border-[#E8EEF5] align-top">
-                <td className="py-1 pr-2 text-[#003360]">{r.description}</td>
-                <td className="py-1 pr-2 text-[#003360]">{r.probability}</td>
-                <td className="py-1 pr-2 text-[#003360]">{r.impact}</td>
-                <td className="py-1 text-[#003360]">{r.mitigation}</td>
+              <tr key={i} className="border-t border-[var(--border-soft)] align-top">
+                <td className="py-1 pr-2 text-[var(--text-1)]">{r.description}</td>
+                <td className="py-1 pr-2 text-[var(--text-1)]">{r.probability}</td>
+                <td className="py-1 pr-2 text-[var(--text-1)]">{r.impact}</td>
+                <td className="py-1 text-[var(--text-1)]">{r.mitigation}</td>
               </tr>
             )
           )}
@@ -119,7 +119,7 @@ function ReadOnlyValue({ field, value }: { field: ActaField; value: unknown }) {
     );
   }
 
-  return <p className="text-sm whitespace-pre-wrap text-[#003360]">{String(value)}</p>;
+  return <p className="text-sm whitespace-pre-wrap text-[var(--text-1)]">{String(value)}</p>;
 }
 
 function TextListEditor({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
@@ -135,7 +135,7 @@ function TextListEditor({ value, onChange }: { value: string[]; onChange: (v: st
           <button
             type="button"
             onClick={() => onChange(value.filter((_, j) => j !== i))}
-            className="rounded border border-[#D3DDEA] px-2 text-xs text-[#5A6B82]"
+            className="rounded border border-[var(--border-mid)] px-2 text-xs text-[var(--text-2)]"
           >
             ✕
           </button>
@@ -144,7 +144,7 @@ function TextListEditor({ value, onChange }: { value: string[]; onChange: (v: st
       <button
         type="button"
         onClick={() => onChange([...value, ''])}
-        className="w-fit text-xs font-semibold text-[#0066CC] hover:underline"
+        className="w-fit text-xs font-semibold text-[var(--brand-primary)] hover:underline"
       >
         + Agregar línea
       </button>
@@ -164,7 +164,7 @@ function TwoColumnListEditor({
   return (
     <div className="flex flex-col gap-1.5">
       {(columns ?? ['', '']).some(Boolean) && (
-        <div className="flex gap-1.5 text-[10px] tracking-[0.06em] text-[#B6C2D2] uppercase">
+        <div className="flex gap-1.5 text-[10px] tracking-[0.06em] text-[var(--text-3)] uppercase">
           <span className="flex-1">{columns?.[0]}</span>
           <span className="flex-1">{columns?.[1]}</span>
           <span className="w-6" />
@@ -185,7 +185,7 @@ function TwoColumnListEditor({
           <button
             type="button"
             onClick={() => onChange(value.filter((_, j) => j !== i))}
-            className="rounded border border-[#D3DDEA] px-2 text-xs text-[#5A6B82]"
+            className="rounded border border-[var(--border-mid)] px-2 text-xs text-[var(--text-2)]"
           >
             ✕
           </button>
@@ -194,7 +194,7 @@ function TwoColumnListEditor({
       <button
         type="button"
         onClick={() => onChange([...value, ['', '']])}
-        className="w-fit text-xs font-semibold text-[#0066CC] hover:underline"
+        className="w-fit text-xs font-semibold text-[var(--brand-primary)] hover:underline"
       >
         + Agregar fila
       </button>
@@ -277,8 +277,8 @@ function ActionButton({
 
   const classes =
     variant === 'primary'
-      ? 'bg-[#0066CC] text-white hover:bg-[#0059B3]'
-      : 'border border-[#D3DDEA] text-[#003360] hover:bg-[#F4F7FB]';
+      ? 'bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)]'
+      : 'border border-[var(--border-mid)] text-[var(--text-1)] hover:bg-[var(--surface-page)]';
 
   return (
     <div className="flex flex-col gap-1">
@@ -296,7 +296,7 @@ function ActionButton({
       >
         {pending ? 'Procesando…' : label}
       </button>
-      {error && <p className="text-xs text-[#B4232F]">{error}</p>}
+      {error && <p className="text-xs text-[var(--alert-crit)]">{error}</p>}
     </div>
   );
 }
@@ -349,18 +349,18 @@ export function ActaForm({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-lg border border-[#E8EEF5] bg-white p-6">
+      <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface-panel)] p-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-[#003360]">{template.name}</h2>
-            <p className="text-xs text-[#5A6B82]">Versión {acta.version}</p>
+            <h2 className="text-sm font-semibold text-[var(--text-1)]">{template.name}</h2>
+            <p className="text-xs text-[var(--text-2)]">Versión {acta.version}</p>
           </div>
           <span className={`rounded px-2 py-1 text-[10px] font-semibold tracking-wide uppercase ${STATUS_STYLES[acta.status]}`}>
             {STATUS_LABELS[acta.status]}
           </span>
         </div>
 
-        <dl className="grid grid-cols-2 gap-2 text-xs text-[#5A6B82]">
+        <dl className="grid grid-cols-2 gap-2 text-xs text-[var(--text-2)]">
           {acta.reviewed_at && (
             <div>
               <dt className="font-mono uppercase">Revisado</dt>
@@ -401,7 +401,7 @@ export function ActaForm({
               type="button"
               disabled={pendingSave}
               onClick={saveDraft}
-              className="rounded-md border border-[#D3DDEA] px-4 py-2 text-sm font-semibold text-[#003360] hover:bg-[#F4F7FB] disabled:opacity-60"
+              className="rounded-md border border-[var(--border-mid)] px-4 py-2 text-sm font-semibold text-[var(--text-1)] hover:bg-[var(--surface-page)] disabled:opacity-60"
             >
               {pendingSave ? 'Guardando…' : 'Guardar borrador'}
             </button>
@@ -434,25 +434,25 @@ export function ActaForm({
             />
           )}
         </div>
-        {saveError && <p className="mt-2 text-xs text-[#B4232F]">{saveError}</p>}
+        {saveError && <p className="mt-2 text-xs text-[var(--alert-crit)]">{saveError}</p>}
       </div>
 
       {[...template.sections]
         .sort((a, b) => a.order - b.order)
         .map((section) => (
-          <div key={section.id} className="rounded-lg border border-[#E8EEF5] bg-white p-6">
-            <h3 className="mb-1 text-sm font-semibold text-[#003360]">
+          <div key={section.id} className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface-panel)] p-6">
+            <h3 className="mb-1 text-sm font-semibold text-[var(--text-1)]">
               {section.order}. {section.title}
             </h3>
-            {section.help && <p className="mb-3 text-xs text-[#5A6B82]">{section.help}</p>}
+            {section.help && <p className="mb-3 text-xs text-[var(--text-2)]">{section.help}</p>}
             <div className="flex flex-col gap-4">
               {section.fields.map((field) => (
                 <div key={field.id}>
-                  <label className="mb-1 block text-xs font-medium text-[#003360]">
+                  <label className="mb-1 block text-xs font-medium text-[var(--text-1)]">
                     {field.label}
-                    {field.required && field.source.kind === 'manual' && <span className="text-[#B4232F]"> *</span>}
+                    {field.required && field.source.kind === 'manual' && <span className="text-[var(--alert-crit)]"> *</span>}
                   </label>
-                  {field.help && <p className="mb-1 text-xs text-[#5A6B82]">{field.help}</p>}
+                  {field.help && <p className="mb-1 text-xs text-[var(--text-2)]">{field.help}</p>}
                   {canEdit && field.source.kind === 'manual' ? (
                     <ManualFieldEditor
                       field={field}

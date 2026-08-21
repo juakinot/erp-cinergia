@@ -4,8 +4,8 @@ import { useState, useTransition } from 'react';
 import type { ActionState } from '../actions';
 
 const VARIANT_CLASS: Record<'primary' | 'ghost', string> = {
-  primary: 'bg-[#0066CC] text-white hover:bg-[#0059B3]',
-  ghost: 'border border-[#D3DDEA] text-[#003360] hover:bg-[#F4F7FB]',
+  primary: 'bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)]',
+  ghost: 'border border-[var(--border-mid)] text-[var(--text-1)] hover:bg-[var(--surface-page)]',
 };
 
 /** Botón para una Server Action con un único argumento ya `bind`eado. */
@@ -38,7 +38,7 @@ export function ActionButton({
       >
         {pending ? (pendingLabel ?? 'Procesando…') : label}
       </button>
-      {error && <p className="text-xs text-[#B4232F]">{error}</p>}
+      {error && <p className="text-xs text-[var(--alert-crit)]">{error}</p>}
     </div>
   );
 }

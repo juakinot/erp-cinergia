@@ -27,8 +27,8 @@ const MODALITY_OPTIONS = [
 const initialState: ActionState = { error: null };
 
 const inputClass =
-  'rounded-md border border-[#D3DDEA] px-3 py-2 text-sm text-[#003360] outline-none focus:border-[#0066CC] focus:ring-1 focus:ring-[#0066CC]';
-const labelClass = 'text-sm font-medium text-[#003360]';
+  'rounded-md border border-[var(--border-mid)] px-3 py-2 text-sm text-[var(--text-1)] outline-none focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)]';
+const labelClass = 'text-sm font-medium text-[var(--text-1)]';
 
 export default function NewInitiativeForm({
   areas,
@@ -82,7 +82,7 @@ export default function NewInitiativeForm({
             <div className="flex flex-col gap-1.5">
               <span className={labelClass}>Tipo</span>
               <input type="hidden" name="type" value={selectedArea?.default_initiative_type ?? ''} />
-              <p className="rounded-md bg-[#F4F7FB] px-3 py-2 text-sm text-[#5A6B82]">
+              <p className="rounded-md bg-[var(--surface-page)] px-3 py-2 text-sm text-[var(--text-2)]">
                 {selectedArea ? TYPE_LABELS[selectedArea.default_initiative_type] : '—'}
                 <span className="ml-1 text-xs">(según el área)</span>
               </p>
@@ -145,7 +145,7 @@ export default function NewInitiativeForm({
                 step="0.01"
                 className={inputClass}
               />
-              <p className="text-xs text-[#5A6B82]">Sobre S/ 2,000 requiere aprobación de Presidencia.</p>
+              <p className="text-xs text-[var(--text-2)]">Sobre S/ 2,000 requiere aprobación de Presidencia.</p>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -169,14 +169,14 @@ export default function NewInitiativeForm({
               ))}
             </select>
             {coordinatorOptions.length === 0 && (
-              <p className="text-xs text-[#B4232F]">
+              <p className="text-xs text-[var(--alert-crit)]">
                 No hay coordinadores registrados en esta área todavía.
               </p>
             )}
           </div>
 
           {state.error && (
-            <p role="alert" className="rounded-md bg-[#F4D2D5] px-3 py-2 text-sm text-[#B4232F]">
+            <p role="alert" className="rounded-md bg-[var(--alert-crit-soft)] px-3 py-2 text-sm text-[var(--alert-crit)]">
               {state.error}
             </p>
           )}

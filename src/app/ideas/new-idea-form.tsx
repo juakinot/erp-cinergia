@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useActionState } from 'react';
 import { createIdea, type ActionState } from './actions';
 
 const inputClass =
-  'rounded-md border border-[#D3DDEA] px-2.5 py-1.5 text-sm text-[#003360] outline-none focus:border-[#0066CC] focus:ring-1 focus:ring-[#0066CC]';
+  'rounded-md border border-[var(--border-mid)] px-2.5 py-1.5 text-sm text-[var(--text-1)] outline-none focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)]';
 
 const initialState: ActionState = { error: null };
 

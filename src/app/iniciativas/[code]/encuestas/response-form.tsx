@@ -5,7 +5,7 @@ import { submitResponse, type ActionState } from './actions';
 import type { SurveyQuestionRow, SurveyRow } from '@/lib/surveys/types';
 
 const inputClass =
-  'rounded-md border border-[#D3DDEA] px-2.5 py-1.5 text-sm text-[#003360] outline-none focus:border-[#0066CC] focus:ring-1 focus:ring-[#0066CC]';
+  'rounded-md border border-[var(--border-mid)] px-2.5 py-1.5 text-sm text-[var(--text-1)] outline-none focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)]';
 
 function QuestionInput({ question }: { question: SurveyQuestionRow }) {
   const name = `answer_${question.id}`;

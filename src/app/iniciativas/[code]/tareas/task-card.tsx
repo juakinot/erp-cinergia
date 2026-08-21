@@ -48,25 +48,25 @@ export function TaskCard({
 
   return (
     <div
-      className={`rounded-md border border-[#E8EEF5] p-2.5 text-sm ${isCancelled ? 'opacity-50' : ''}`}
+      className={`rounded-md border border-[var(--border-soft)] p-2.5 text-sm ${isCancelled ? 'opacity-50' : ''}`}
     >
-      <p className={`font-medium text-[#003360] ${isCancelled ? 'line-through' : ''}`}>{task.title}</p>
+      <p className={`font-medium text-[var(--text-1)] ${isCancelled ? 'line-through' : ''}`}>{task.title}</p>
 
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${PRIORITY_STYLES[task.priority]}`}>
           {PRIORITY_LABELS[task.priority]}
         </span>
         {task.due_date && (
-          <span className="text-[10px] text-[#5A6B82]">
+          <span className="text-[10px] text-[var(--text-2)]">
             {new Date(task.due_date).toLocaleDateString('es-PE')}
           </span>
         )}
       </div>
 
-      <p className="mt-1 text-xs text-[#5A6B82]">{task.assignee?.full_name ?? 'Sin asignar'}</p>
+      <p className="mt-1 text-xs text-[var(--text-2)]">{task.assignee?.full_name ?? 'Sin asignar'}</p>
 
       {task.status === 'BLOCKED' && task.blocked_reason && (
-        <p className="mt-1.5 rounded bg-[#F4D2D5] px-1.5 py-1 text-xs text-[#B4232F]">{task.blocked_reason}</p>
+        <p className="mt-1.5 rounded bg-[var(--alert-crit-soft)] px-1.5 py-1 text-xs text-[var(--alert-crit)]">{task.blocked_reason}</p>
       )}
 
       {isManager && (
@@ -83,7 +83,7 @@ export function TaskCard({
                   setReassigning(false);
                 });
               }}
-              className="w-full rounded border border-[#D3DDEA] px-1.5 py-1 text-xs"
+              className="w-full rounded border border-[var(--border-mid)] px-1.5 py-1 text-xs"
             >
               <option value="">Sin asignar</option>
               {areaMembers.map((m) => (
@@ -96,7 +96,7 @@ export function TaskCard({
             <button
               type="button"
               onClick={() => setReassigning(true)}
-              className="text-[10px] text-[#0066CC] hover:underline"
+              className="text-[10px] text-[var(--brand-primary)] hover:underline"
             >
               Reasignar
             </button>
@@ -112,21 +112,21 @@ export function TaskCard({
             onChange={(e) => setBlockingReason(e.target.value)}
             placeholder="Motivo del bloqueo…"
             rows={2}
-            className="rounded border border-[#D3DDEA] px-1.5 py-1 text-xs"
+            className="rounded border border-[var(--border-mid)] px-1.5 py-1 text-xs"
           />
           <div className="flex gap-1.5">
             <button
               type="button"
               disabled={pending}
               onClick={() => move('BLOCKED', blockingReason)}
-              className="rounded bg-[#B4232F] px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-60"
+              className="rounded bg-[var(--alert-crit)] px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-60"
             >
               Confirmar bloqueo
             </button>
             <button
               type="button"
               onClick={() => setBlockingReason(null)}
-              className="rounded border border-[#D3DDEA] px-2 py-1 text-[11px] text-[#5A6B82]"
+              className="rounded border border-[var(--border-mid)] px-2 py-1 text-[11px] text-[var(--text-2)]"
             >
               Cancelar
             </button>
@@ -144,7 +144,7 @@ export function TaskCard({
                 type="button"
                 disabled={pending}
                 onClick={() => (to === 'BLOCKED' ? setBlockingReason('') : move(to))}
-                className="rounded border border-[#D3DDEA] px-2 py-1 text-[11px] text-[#003360] hover:bg-[#F4F7FB] disabled:opacity-60"
+                className="rounded border border-[var(--border-mid)] px-2 py-1 text-[11px] text-[var(--text-1)] hover:bg-[var(--surface-page)] disabled:opacity-60"
               >
                 {MOVE_LABELS[to]}
               </button>
@@ -152,7 +152,7 @@ export function TaskCard({
         </div>
       )}
 
-      {error && <p className="mt-1.5 text-xs text-[#B4232F]">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-[var(--alert-crit)]">{error}</p>}
     </div>
   );
 }

@@ -1136,6 +1136,60 @@ consistente en clics sucesivos — no fue un cold start aislado.
 
 ---
 
+## D34 · Texto ilegible en modo oscuro — decenas de formularios con color fijo en vez del token
+
+**Decisión.** El usuario reportó (con captura real, no descripción) que
+"Nueva iniciativa" se veía con texto casi invisible — labels en un azul
+oscuro apenas distinguible sobre el fondo. La causa: 29 Client Components
+(formularios construidos con clases de Tailwind, `text-[#003360]` y
+similares) usaban el valor hexadecimal **literal** de los tokens de modo
+claro en vez de referenciar la variable CSS (`var(--text-1)`) que D18 ya
+define con su contraparte de modo oscuro. El panel donde vive el texto sí
+cambiaba de fondo correctamente (usa `var(--surface-panel)`) — el bug era
+específicamente que el texto se quedaba fijo en su tono de modo claro,
+volviéndose casi del mismo color que el fondo oscuro.
+
+**Alcance real: no era un caso aislado.** Un grep confirmó 83 usos de
+`text-[#003360]`/`text-[#5A6B82]` y ~150 más contando bordes, fondos y
+anillos de foco, repartidos en 29 archivos — básicamente todo formulario
+Client Component construido esta sesión (Tareas, Actas, Encuestas,
+Radar, Logística, Ideación, Propuestas, Calendario, Mi Kanban,
+Observaciones, Usuarios, Iniciativas) comparte el mismo origen: se copió
+el mismo par de clases (`inputClass`/`labelClass`) de formulario en
+formulario, arrastrando el mismo hex literal cada vez. Corregido con un
+reemplazo scripteado (no manual, dado el volumen): cada hex mapeado a su
+token semántico exacto (`#003360→var(--text-1)`, `#5A6B82→var(--text-2)`,
+`#0066CC→var(--brand-primary)`, `#B4232F→var(--alert-crit)`, etc.) —
+mismo valor visual en modo claro, ahora también correcto en oscuro.
+
+**Un segundo caso que el grep de hex no habría encontrado.** `bg-white`
+(color con nombre de Tailwind, no un hex) aparecía en 10 archivos —
+login, completar-registro, confirmar invitación, Actas, tableros Kanban
+— siempre junto a texto que sí cambiaba con el tema. Mismo bug, otra
+forma de escribirlo: quedó fijo en blanco puro en vez de
+`var(--surface-panel)`. Se revisó también `text-white`/`bg-black` y
+similares por si el patrón se repetía en más formas — los únicos 12 usos
+de `text-white` restantes son texto blanco sobre botones de color sólido
+(`bg-[var(--brand-primary)]`, `bg-[var(--alert-crit)]`), que es correcto
+en cualquier tema y no se tocó.
+
+**Quedan sin tocar, a propósito:** la caja de éxito verde de
+`invite-user-form.tsx` (fondo claro + texto verde oscuro, ambos fijos)
+sigue con sus valores literales — es una caja autocontenida que se lee
+bien en cualquier fondo de página, no es el bug reportado, y tocarla no
+era necesario para resolver la ilegibilidad real.
+
+**De paso:** se quitó "· ERP" de la marca en el login, a pedido — queda
+solo "CINERGIA".
+
+**Verificado con captura real en modo oscuro** contra el mismo formulario
+de la captura del reporte original ("Nueva iniciativa"): labels legibles,
+mismo layout, mismo comportamiento en modo claro (sin cambios visuales
+ahí, los hex mapeados son idénticos a los valores de modo claro de cada
+token).
+
+---
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable

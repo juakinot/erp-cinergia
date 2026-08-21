@@ -22,14 +22,14 @@ export default async function ConfirmPage({
   const hasToken = (tokenHash && type) || code;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F4F7FB] px-4">
-      <div className="w-full max-w-sm rounded-lg border border-[#E8EEF5] bg-white p-8 text-center shadow-sm">
-        <p className="font-mono text-xs tracking-[0.14em] text-[#5A6B82] uppercase">CINERGIA · ERP</p>
+    <main className="flex min-h-screen items-center justify-center bg-[var(--surface-page)] px-4">
+      <div className="w-full max-w-sm rounded-lg border border-[var(--border-soft)] bg-[var(--surface-panel)] p-8 text-center shadow-sm">
+        <p className="font-mono text-xs tracking-[0.14em] text-[var(--text-2)] uppercase">CINERGIA · ERP</p>
 
         {hasToken ? (
           <>
-            <h1 className="mt-2 text-lg font-bold text-[#003360]">Confirmar invitación</h1>
-            <p className="mt-2 text-sm text-[#5A6B82]">
+            <h1 className="mt-2 text-lg font-bold text-[var(--text-1)]">Confirmar invitación</h1>
+            <p className="mt-2 text-sm text-[var(--text-2)]">
               Haz clic para continuar y elegir tu contraseña.
             </p>
             <form action={confirmInvite} className="mt-6">
@@ -42,8 +42,8 @@ export default async function ConfirmPage({
           </>
         ) : (
           <>
-            <h1 className="mt-2 text-lg font-bold text-[#003360]">Enlace inválido</h1>
-            <p className="mt-2 text-sm text-[#5A6B82]">
+            <h1 className="mt-2 text-lg font-bold text-[var(--text-1)]">Enlace inválido</h1>
+            <p className="mt-2 text-sm text-[var(--text-2)]">
               Pide a Presidencia que te comparta la invitación de nuevo.
             </p>
           </>

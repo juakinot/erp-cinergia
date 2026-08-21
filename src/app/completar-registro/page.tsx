@@ -8,10 +8,10 @@ export default async function CompleteRegistrationPage() {
     // En la práctica el middleware ya redirige a /login antes de llegar
     // aquí si no hay sesión — esto es una segunda capa por si acaso.
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F4F7FB] px-4">
-        <div className="w-full max-w-sm rounded-lg border border-[#E8EEF5] bg-white p-8 text-center shadow-sm">
-          <h1 className="text-lg font-bold text-[#003360]">Enlace inválido o vencido</h1>
-          <p className="mt-2 text-sm text-[#5A6B82]">
+      <main className="flex min-h-screen items-center justify-center bg-[var(--surface-page)] px-4">
+        <div className="w-full max-w-sm rounded-lg border border-[var(--border-soft)] bg-[var(--surface-panel)] p-8 text-center shadow-sm">
+          <h1 className="text-lg font-bold text-[var(--text-1)]">Enlace inválido o vencido</h1>
+          <p className="mt-2 text-sm text-[var(--text-2)]">
             Pide a Presidencia que te reenvíe la invitación desde &ldquo;Usuarios&rdquo;.
           </p>
         </div>

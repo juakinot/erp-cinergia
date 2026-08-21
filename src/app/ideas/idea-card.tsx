@@ -6,7 +6,7 @@ import { discardIdea, promoteIdea, publishIdea, toggleVote, type ActionState } f
 import { IDEA_STATUS_BADGE, IDEA_STATUS_LABELS, type IdeaRow } from '@/lib/ideas/types';
 
 const inputClass =
-  'rounded-md border border-[#D3DDEA] px-2.5 py-1.5 text-sm text-[#003360] outline-none focus:border-[#0066CC] focus:ring-1 focus:ring-[#0066CC]';
+  'rounded-md border border-[var(--border-mid)] px-2.5 py-1.5 text-sm text-[var(--text-1)] outline-none focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)]';
 
 function personName(field: IdeaRow['author']) {
   const p = Array.isArray(field) ? field[0] : field;

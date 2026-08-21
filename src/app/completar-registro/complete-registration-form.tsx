@@ -49,17 +49,17 @@ export default function CompleteRegistrationForm({ fullName }: { fullName: strin
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F4F7FB] px-4">
-      <div className="w-full max-w-sm rounded-lg border border-[#E8EEF5] bg-white p-8 shadow-sm">
-        <p className="font-mono text-xs tracking-[0.14em] text-[#5A6B82] uppercase">CINERGIA · ERP</p>
-        <h1 className="mt-2 text-xl font-bold text-[#003360]">Bienvenido, {fullName}</h1>
-        <p className="mt-1 text-sm text-[#5A6B82]">
+    <main className="flex min-h-screen items-center justify-center bg-[var(--surface-page)] px-4">
+      <div className="w-full max-w-sm rounded-lg border border-[var(--border-soft)] bg-[var(--surface-panel)] p-8 shadow-sm">
+        <p className="font-mono text-xs tracking-[0.14em] text-[var(--text-2)] uppercase">CINERGIA · ERP</p>
+        <h1 className="mt-2 text-xl font-bold text-[var(--text-1)]">Bienvenido, {fullName}</h1>
+        <p className="mt-1 text-sm text-[var(--text-2)]">
           Elige tu contraseña para terminar de configurar tu cuenta.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="password" className="text-sm font-medium text-[#003360]">
+            <label htmlFor="password" className="text-sm font-medium text-[var(--text-1)]">
               Nueva contraseña
             </label>
             <input
@@ -69,13 +69,13 @@ export default function CompleteRegistrationForm({ fullName }: { fullName: strin
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="rounded-md border border-[#D3DDEA] px-3 py-2 text-sm text-[#003360] outline-none focus:border-[#0066CC] focus:ring-1 focus:ring-[#0066CC]"
+              className="rounded-md border border-[var(--border-mid)] px-3 py-2 text-sm text-[var(--text-1)] outline-none focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)]"
             />
-            <p className="text-xs text-[#5A6B82]">Mínimo 10 caracteres, con mayúscula, número y símbolo.</p>
+            <p className="text-xs text-[var(--text-2)]">Mínimo 10 caracteres, con mayúscula, número y símbolo.</p>
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="confirm" className="text-sm font-medium text-[#003360]">
+            <label htmlFor="confirm" className="text-sm font-medium text-[var(--text-1)]">
               Confirmar contraseña
             </label>
             <input
@@ -85,12 +85,12 @@ export default function CompleteRegistrationForm({ fullName }: { fullName: strin
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               required
-              className="rounded-md border border-[#D3DDEA] px-3 py-2 text-sm text-[#003360] outline-none focus:border-[#0066CC] focus:ring-1 focus:ring-[#0066CC]"
+              className="rounded-md border border-[var(--border-mid)] px-3 py-2 text-sm text-[var(--text-1)] outline-none focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)]"
             />
           </div>
 
           {error && (
-            <p role="alert" className="rounded-md bg-[#F4D2D5] px-3 py-2 text-sm text-[#B4232F]">
+            <p role="alert" className="rounded-md bg-[var(--alert-crit-soft)] px-3 py-2 text-sm text-[var(--alert-crit)]">
               {error}
             </p>
           )}
@@ -98,7 +98,7 @@ export default function CompleteRegistrationForm({ fullName }: { fullName: strin
           <button
             type="submit"
             disabled={pending}
-            className="mt-2 rounded-md bg-[#0066CC] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0059B3] disabled:opacity-60"
+            className="mt-2 rounded-md bg-[var(--brand-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-primary-hover)] disabled:opacity-60"
           >
             {pending ? 'Guardando…' : 'Guardar y entrar'}
           </button>

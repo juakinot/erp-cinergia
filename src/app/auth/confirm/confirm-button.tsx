@@ -17,7 +17,7 @@ export function ConfirmButton() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full rounded-md bg-[#0066CC] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0059B3] disabled:opacity-60"
+      className="w-full rounded-md bg-[var(--brand-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-primary-hover)] disabled:opacity-60"
     >
       {pending ? 'Confirmando…' : 'Continuar'}
     </button>

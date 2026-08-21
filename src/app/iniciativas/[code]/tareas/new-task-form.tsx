@@ -7,7 +7,7 @@ import { PRIORITY_LABELS, type TaskPriority } from '@/lib/tasks/types';
 const initialState: ActionState = { error: null };
 
 const inputClass =
-  'rounded-md border border-[#D3DDEA] px-2.5 py-1.5 text-sm text-[#003360] outline-none focus:border-[#0066CC] focus:ring-1 focus:ring-[#0066CC]';
+  'rounded-md border border-[var(--border-mid)] px-2.5 py-1.5 text-sm text-[var(--text-1)] outline-none focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)]';
 
 export function NewTaskForm({
   initiativeCode,
@@ -32,7 +32,7 @@ export function NewTaskForm({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="shrink-0 rounded-md bg-[#0066CC] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0059B3]"
+        className="shrink-0 rounded-md bg-[var(--brand-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-primary-hover)]"
       >
         + Nueva tarea
       </button>
@@ -43,7 +43,7 @@ export function NewTaskForm({
     <form
       ref={formRef}
       action={formAction}
-      className="flex w-full max-w-md flex-col gap-2.5 rounded-lg border border-[#E8EEF5] bg-white p-4"
+      className="flex w-full max-w-md flex-col gap-2.5 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-panel)] p-4"
     >
       <input type="hidden" name="initiativeCode" value={initiativeCode} />
       <input name="title" placeholder="Título de la tarea" required className={inputClass} />
@@ -67,20 +67,20 @@ export function NewTaskForm({
         ))}
       </select>
 
-      {state.error && <p className="text-xs text-[#B4232F]">{state.error}</p>}
+      {state.error && <p className="text-xs text-[var(--alert-crit)]">{state.error}</p>}
 
       <div className="flex gap-2">
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-[#0066CC] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#0059B3] disabled:opacity-60"
+          className="rounded-md bg-[var(--brand-primary)] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[var(--brand-primary-hover)] disabled:opacity-60"
         >
           {pending ? 'Creando…' : 'Crear tarea'}
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="rounded-md border border-[#D3DDEA] px-3 py-1.5 text-sm text-[#5A6B82]"
+          className="rounded-md border border-[var(--border-mid)] px-3 py-1.5 text-sm text-[var(--text-2)]"
         >
           Cancelar
         </button>
