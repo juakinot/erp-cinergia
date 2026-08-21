@@ -1,9 +1,7 @@
 import Link from 'next/link';
 import { logout } from '@/app/actions';
 import { ROLE_LABELS } from '@/lib/roles';
-import { createClient } from '@/lib/supabase/server';
-import { getPendingApprovals, pendingCount } from '@/lib/approvals/queries';
-import { getUnreadNotificationCount } from '@/lib/notifications/queries';
+import { getShellCounts } from '@/lib/shell-counts';
 import type { AppRole } from '@/lib/initiatives/types';
 
 interface NavItem {
@@ -57,16 +55,9 @@ export async function AppShell({
 }) {
   const items = NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(user.role));
 
-  const supabase = await createClient();
-
-  // Antes secuencial (D23): esperaba las aprobaciones pendientes y recién
-  // después pedía las notificaciones. Son consultas independientes — no
-  // hay motivo para pagar su latencia dos veces en cada carga de página.
-  const [pending, unreadCount] = await Promise.all([
-    getPendingApprovals(supabase, { id: user.id, role: user.role, areaId: user.areaId ?? null }),
-    getUnreadNotificationCount(supabase, user.id),
-  ]);
-  const approvalsCount = pendingCount(pending);
+  // D33: cacheado 15s (ver src/lib/shell-counts.ts) — antes se recalculaba
+  // contra Supabase en cada clic, sin importar que nada hubiera cambiado.
+  const { approvalsCount, unreadCount } = await getShellCounts(user.id, user.role, user.areaId ?? null);
 
   return (
     <div className="app-shell">

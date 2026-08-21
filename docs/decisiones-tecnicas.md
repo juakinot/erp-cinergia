@@ -1097,6 +1097,45 @@ el cambio.
 
 ---
 
+## D33 · Los badges del sidebar seguían lentos tras D32 — cachearlos, no solo paralelizarlos
+
+**Decisión.** D32 paralelizó las consultas de `AppShell`, pero medir de
+verdad contra producción (Performance API del navegador, no una
+impresión) mostró que una navegación normal (`/aprobaciones`,
+`/semaforo`) seguía tardando 1.5-2.2s solo en la petición RSC — la
+paralelización redujo la *cantidad* de idas y vueltas secuenciales, pero
+`AppShell` corriendo en *cada* clic seguía pagando latencia de red contra
+Supabase por algo que casi nunca cambia entre un clic y el siguiente: el
+conteo de Aprobaciones pendientes y de notificaciones sin leer.
+
+Se envolvió ese cálculo en `unstable_cache` (`src/lib/shell-counts.ts`),
+15s de vigencia por `(userId, role, areaId)`. `unstable_cache` no puede
+leer `cookies()` — de donde sale el cliente normal de Supabase — así que
+la función cacheada usa el cliente admin; es seguro porque
+`getPendingApprovals`/`getUnreadNotificationCount` ya filtran
+explícitamente por `user_id`/`area_id` en el código (RLS es respaldo, no
+lo único que acota el resultado).
+
+**Contrapartida consciente, no un descuido.** El badge puede quedar hasta
+15s desactualizado después de aprobar algo o leer una notificación — no
+se enganchó a `revalidateTag` en cada punto de escritura que lo afecta
+(son demasiados Server Actions para ese costo hoy). Se prefirió esa
+imprecisión leve a pagar la consulta completa en cada clic.
+
+**Encontrado por un reporte real, medido con datos reales.** Sebastián
+reportó que la página seguía lenta después del arreglo de D32. En vez de
+asumir que ya estaba resuelto, se midió con la Performance API del
+navegador contra `https://erp-cinergia.vercel.app` real (no local): la
+petición RSC de `/aprobaciones` tardaba 2175ms, la de `/semaforo` 1585ms,
+consistente en clics sucesivos — no fue un cold start aislado.
+
+**De paso:** se cerró un descuido de limpieza — dos cuentas de prueba
+(`tmp-perf-director`, `tmp-mobile-test`) habían quedado huérfanas en
+`public.users` porque los scripts de limpieza solo borraban de
+`auth.users`, sin la fila de perfil correspondiente.
+
+---
+
 ## Pendiente de definir
 
 - **Umbral de escalación**: sembrado en `app_settings` como S/ 2,000, ajustable

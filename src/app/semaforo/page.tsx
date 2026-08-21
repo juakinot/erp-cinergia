@@ -52,21 +52,22 @@ export default async function SemaforoPage() {
   const radarByInitiative = new Map<string, number>();
 
   if (ids.length > 0) {
-    const { data: overdueTasks } = await supabase
-      .from('tasks')
-      .select('initiative_id')
-      .in('initiative_id', ids)
-      .lt('due_date', nowIso)
-      .not('status', 'in', '(COMPLETED,CANCELLED)');
+    const [{ data: overdueTasks }, { data: pendingInputs }] = await Promise.all([
+      supabase
+        .from('tasks')
+        .select('initiative_id')
+        .in('initiative_id', ids)
+        .lt('due_date', nowIso)
+        .not('status', 'in', '(COMPLETED,CANCELLED)'),
+      supabase
+        .from('initiative_inputs')
+        .select('initiative_id')
+        .in('initiative_id', ids)
+        .in('status', ['PROPOSED', 'IN_REVIEW']),
+    ]);
     for (const t of overdueTasks ?? []) {
       overdueByInitiative.set(t.initiative_id, (overdueByInitiative.get(t.initiative_id) ?? 0) + 1);
     }
-
-    const { data: pendingInputs } = await supabase
-      .from('initiative_inputs')
-      .select('initiative_id')
-      .in('initiative_id', ids)
-      .in('status', ['PROPOSED', 'IN_REVIEW']);
     for (const i of pendingInputs ?? []) {
       radarByInitiative.set(i.initiative_id, (radarByInitiative.get(i.initiative_id) ?? 0) + 1);
     }

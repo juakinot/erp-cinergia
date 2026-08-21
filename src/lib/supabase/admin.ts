@@ -14,6 +14,12 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
  *     el insert, así que la sesión normal solo puede notificarse a sí misma.
  *     El Server Action que llama a `notify()` ya validó la autoridad del
  *     actor antes de escribir la notificación de la otra persona.
+ *   - Los contadores de `AppShell` (`src/components/app-shell.tsx`), porque
+ *     se envuelven en `unstable_cache` y Next.js no permite leer `cookies()`
+ *     (de donde sale el cliente normal) dentro de una función cacheada. Es
+ *     seguro acá porque esas consultas ya filtran explícitamente por
+ *     `user_id`/`area_id` en el código, no dependen de RLS para acotar el
+ *     resultado a la persona correcta — RLS solo actúa como respaldo.
  *
  * Uso NUNCA permitido: pasar este cliente a un Client Component, o
  * construirlo a partir de una variable NEXT_PUBLIC_*.
