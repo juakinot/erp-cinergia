@@ -18,10 +18,13 @@ export default async function NewInitiativePage() {
     .select('id, slug, name, default_initiative_type')
     .order('name');
 
+  // PRESIDENT entra también: puede coordinar cualquier iniciativa por su
+  // propia autoridad (canManageInitiative), sin importar el área elegida
+  // — el filtro por área del formulario lo trata aparte, no por área_id.
   const { data: candidates } = await supabase
     .from('users')
     .select('id, full_name, role, area_id')
-    .in('role', ['COORDINATOR', 'AREA_DIRECTOR'])
+    .in('role', ['COORDINATOR', 'AREA_DIRECTOR', 'PRESIDENT'])
     .eq('status', 'ACTIVE');
 
   return (

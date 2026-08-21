@@ -43,8 +43,10 @@ export default function NewInitiativeForm({
   const [areaId, setAreaId] = useState(lockedAreaId ?? areas[0]?.id ?? '');
 
   const selectedArea = areas.find((a) => a.id === areaId);
+  // PRESIDENT no pertenece a un área (area_id null) — se ofrece como
+  // coordinador posible sin importar cuál área se haya elegido arriba.
   const coordinatorOptions = useMemo(
-    () => candidates.filter((c) => c.area_id === areaId),
+    () => candidates.filter((c) => c.area_id === areaId || c.role === 'PRESIDENT'),
     [candidates, areaId]
   );
 
